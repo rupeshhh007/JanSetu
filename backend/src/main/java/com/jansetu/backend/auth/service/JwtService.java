@@ -33,4 +33,30 @@ public class JwtService {
                 .signWith(getSignInKey()) // The cryptographic signature
                 .compact(); // Squishes it all into the final String token
     }
+    // NEW: Extract the email (subject) from the token
+    public String extractUsername(String token) {
+        return Jwts.parser()
+                .verifyWith(getSignInKey()) // Uses our secret key to check the signature!
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+    }
+
+    // NEW: Check if the token is valid for the specific user
+    public boolean isTokenValid(String token, String userEmail) {
+        final String extractedUsername = extractUsername(token);
+        return (extractedUsername.equals(userEmail) && !isTokenExpired(token));
+    }
+
+    // NEW: Helper method to check expiration
+    private boolean isTokenExpired(String token) {
+        Date expiration = Jwts.parser()
+                .verifyWith(getSignInKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getExpiration();
+        return expiration.before(new Date());
+    }
 }
