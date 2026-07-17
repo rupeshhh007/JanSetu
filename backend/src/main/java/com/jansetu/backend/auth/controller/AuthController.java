@@ -1,5 +1,7 @@
 package com.jansetu.backend.auth.controller;
 
+import com.jansetu.backend.auth.dto.LoginRequest;
+import com.jansetu.backend.auth.dto.LoginResponse;
 import com.jansetu.backend.auth.dto.RegisterRequest;
 import com.jansetu.backend.auth.dto.RegisterResponse;
 import com.jansetu.backend.auth.service.AuthService;
@@ -22,4 +24,12 @@ public class AuthController {
         RegisterResponse response = authService.register(request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+        LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+
+
 }
