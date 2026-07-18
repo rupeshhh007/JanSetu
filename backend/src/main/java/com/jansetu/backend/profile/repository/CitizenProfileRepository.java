@@ -13,5 +13,6 @@ public interface CitizenProfileRepository extends JpaRepository<CitizenProfile, 
 
     // Spring Data JPA magic: We just name the method correctly, and Spring writes the SQL!
     Optional<CitizenProfile> findByUser(User user);
+    Optional<CitizenProfile> findByUserEmail(String email);
 
 }

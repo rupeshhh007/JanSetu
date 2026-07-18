@@ -35,6 +35,10 @@ public class SchemeService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+    // Add this method to SchemeService.java
+    public List<Scheme> getAllSchemesEntities() {
+        return schemeRepository.findAll();
+    }
 
     // --- HELPER: Map Entity to DTO ---
     private SchemeResponse mapToResponse(Scheme scheme) {

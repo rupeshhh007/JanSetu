@@ -70,6 +70,14 @@ public class CitizenProfileService {
         profile.setFarmer(request.getIsFarmer());
         profile.setHasDisability(request.getHasDisability());
     }
+    public CitizenProfile getProfileByEmail(String email) {
+        return profileRepository.findByUserEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Profile not found for email: " + email));
+    }
+    public CitizenProfile getProfileEntity(User user) {
+        return profileRepository.findByUser(user)
+                .orElseThrow(() -> new IllegalStateException("Profile not found for this user."));
+    }
 
     // --- HELPER: Map Data from Entity to DTO ---
     private ProfileResponse mapToResponse(CitizenProfile profile) {
