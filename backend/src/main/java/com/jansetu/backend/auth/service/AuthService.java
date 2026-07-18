@@ -7,23 +7,24 @@ import com.jansetu.backend.auth.dto.RegisterResponse;
 import com.jansetu.backend.auth.entity.Role;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.auth.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService; // NEW: Bring in the badge printer
+    private final JwtService jwtService;
 
     @Value("${application.security.jwt.expiration}")
-    private long jwtExpiration; // NEW: We need this for the response DTO
+    private long jwtExpiration;
 
-    // Constructor Injection updated
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -31,9 +32,12 @@ public class AuthService {
     }
 
     public RegisterResponse register(RegisterRequest request) {
+        log.info("Attempting to register new user with email: {}", request.email());
+
         Optional<User> existingUser = userRepository.findByEmail(request.email());
         if (existingUser.isPresent()) {
-            throw new RuntimeException("Email is already registered");
+            log.warn("Registration failed - email already exists: {}", request.email());
+            throw new RuntimeException("Email is already registered"); // Note: You can swap this to a custom BusinessException later!
         }
 
         String hashedPassword = passwordEncoder.encode(request.password());
@@ -46,24 +50,30 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
+        log.info("Successfully registered user: {}", savedUser.getEmail());
         return new RegisterResponse(savedUser.getId(), "User registered successfully");
     }
 
-    // NEW: The Login Logic
     public LoginResponse login(LoginRequest request) {
+        log.info("Login attempt for email: {}", request.email());
 
         // 1. Find the user by email
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+                .orElseThrow(() -> {
+                    log.warn("Login failed - user not found: {}", request.email());
+                    return new RuntimeException("Invalid credentials");
+                });
 
         // 2. Check if the password matches the hash in the database
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            log.warn("Login failed - bad password for email: {}", request.email());
             throw new RuntimeException("Invalid credentials");
         }
 
         // 3. Generate the JWT
         String jwtToken = jwtService.generateToken(user.getEmail());
 
+        log.info("User {} successfully logged in", user.getEmail());
         // 4. Return the VIP Badge
         return new LoginResponse(jwtToken, "Bearer", jwtExpiration);
     }

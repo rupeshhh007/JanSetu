@@ -3,6 +3,7 @@ package com.jansetu.backend.scheme.controller;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.scheme.dto.SchemeResponse;
 import com.jansetu.backend.scheme.service.MatchingService;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +23,7 @@ public class MatchingController {
     }
 
     @GetMapping("/recommendations")
-    public ResponseEntity<List<SchemeResponse>> getRecommendations(@AuthenticationPrincipal User user) {
+    public ResponseEntity<List<SchemeResponse>> getRecommendations(@Parameter(hidden = true)@AuthenticationPrincipal User user) {
         // We pass the authenticated user object directly to the service
         List<SchemeResponse> eligibleSchemes = matchingService.getEligibleSchemes(user);
         return ResponseEntity.ok(eligibleSchemes);

@@ -19,7 +19,6 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
 
-    // Notice we ONLY inject the Filter here now
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
     }
@@ -29,24 +28,32 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // We inject UserDetailsService directly into this method's parameters!
     @Bean
     public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
-        // 1. Pass the userDetailsService directly into the constructor here:
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
+        // 1. Use the default constructor
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
 
-        // 2. ONLY set the password encoder.
+        // 2. Use the setter methods to configure the provider
+        authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
 
         return authProvider;
     }
+
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationProvider authProvider) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers(
+                                "/api/v1/auth/**",
+                                "/v3/api-docs",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/error" // <-- ADD THIS
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

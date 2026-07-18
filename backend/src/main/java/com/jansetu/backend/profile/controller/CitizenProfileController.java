@@ -4,6 +4,7 @@ import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.profile.dto.ProfileRequest;
 import com.jansetu.backend.profile.dto.ProfileResponse;
 import com.jansetu.backend.profile.service.CitizenProfileService;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +42,7 @@ public class CitizenProfileController {
     // --- 3. UPDATE PROFILE ---
     @PutMapping
     public ResponseEntity<ProfileResponse> updateProfile(
-            @AuthenticationPrincipal User user,
+            @Parameter(hidden = true)@AuthenticationPrincipal User user,
             @Valid @RequestBody ProfileRequest request) {
 
         ProfileResponse response = profileService.updateProfile(user, request);

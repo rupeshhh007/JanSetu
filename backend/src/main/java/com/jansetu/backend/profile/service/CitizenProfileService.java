@@ -4,6 +4,7 @@ import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.profile.dto.ProfileRequest;
 import com.jansetu.backend.profile.dto.ProfileResponse;
 import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.profile.exception.ProfileNotFoundException;
 import com.jansetu.backend.profile.repository.CitizenProfileRepository;
 import org.springframework.stereotype.Service;
 
@@ -34,16 +35,13 @@ public class CitizenProfileService {
 
     // --- 2. GET PROFILE ---
     public ProfileResponse getProfile(User user) {
-        CitizenProfile profile = profileRepository.findByUser(user)
-                .orElseThrow(() -> new IllegalStateException("Profile not found. Please create one first."));
-
-        return mapToResponse(profile);
+        return mapToResponse(getProfileEntity(user));
     }
 
     // --- 3. UPDATE PROFILE ---
     public ProfileResponse updateProfile(User user, ProfileRequest request) {
         CitizenProfile profile = profileRepository.findByUser(user)
-                .orElseThrow(() -> new IllegalStateException("Profile not found. Cannot update."));
+                .orElseThrow(() -> new ProfileNotFoundException("Profile not found"));
 
         updateProfileFields(profile, request);
 
@@ -72,11 +70,12 @@ public class CitizenProfileService {
     }
     public CitizenProfile getProfileByEmail(String email) {
         return profileRepository.findByUserEmail(email)
-                .orElseThrow(() -> new IllegalStateException("Profile not found for email: " + email));
+                .orElseThrow(() -> new ProfileNotFoundException("Profile not found"));
     }
     public CitizenProfile getProfileEntity(User user) {
-        return profileRepository.findByUser(user)
-                .orElseThrow(() -> new IllegalStateException("Profile not found for this user."));
+        // Use the ID instead of the User object reference
+        return profileRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new ProfileNotFoundException("Profile not found"));
     }
 
     // --- HELPER: Map Data from Entity to DTO ---
