@@ -1,5 +1,6 @@
 package com.jansetu.backend.profile.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.jansetu.backend.profile.entity.Category;
 import com.jansetu.backend.profile.entity.Gender;
 import com.jansetu.backend.profile.entity.MaritalStatus;
@@ -36,9 +37,14 @@ public class ProfileResponse {
     private Occupation primaryOccupation;
 
     // Special Flags
-    private boolean isStudent;
-    private boolean isFarmer;
-    private boolean hasDisability;
+    @JsonProperty("isStudent")
+    private Boolean isStudent;
+
+    @JsonProperty("isFarmer")
+    private Boolean isFarmer;
+
+    @JsonProperty("hasDisability")
+    private Boolean hasDisability;
 
     // Metadata
     private Instant lastUpdated;

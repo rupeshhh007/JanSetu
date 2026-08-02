@@ -79,6 +79,7 @@ public class ApplicationService {
         return ApplicationResponse.builder()
                 .applicationId(app.getId())
                 .schemeName(app.getScheme().getName())
+                .schemeId(app.getScheme().getId())
                 .status(app.getStatus())
                 .remarks(app.getRemarks())
                 .submittedAt(app.getSubmittedAt())

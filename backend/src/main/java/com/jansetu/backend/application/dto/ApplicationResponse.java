@@ -10,6 +10,7 @@ import java.util.UUID;
 @Builder
 public class ApplicationResponse {
     private UUID applicationId;
+    private UUID schemeId; // <--- Add this line
     private String schemeName;
     private ApplicationStatus status;
     private String remarks;

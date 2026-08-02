@@ -26,6 +26,11 @@ public class SchemeController {
         SchemeResponse response = schemeService.createScheme(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteScheme(@PathVariable java.util.UUID id) {
+        schemeService.deleteScheme(id);
+        return ResponseEntity.noContent().build();
+    }
 
     // --- 2. GET ALL SCHEMES ---
     @GetMapping

@@ -35,6 +35,9 @@ public class SchemeService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+    public void deleteScheme(java.util.UUID id) {
+        schemeRepository.deleteById(id);
+    }
     // Add this method to SchemeService.java
     public List<Scheme> getAllSchemesEntities() {
         return schemeRepository.findAll();

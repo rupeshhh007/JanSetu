@@ -11,7 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
+import com.jansetu.backend.auth.exception.EmailAlreadyExistsException;
+import com.jansetu.backend.auth.exception.InvalidCredentialsException;
 import java.util.Optional;
 
 @Slf4j
@@ -37,7 +38,7 @@ public class AuthService {
         Optional<User> existingUser = userRepository.findByEmail(request.email());
         if (existingUser.isPresent()) {
             log.warn("Registration failed - email already exists: {}", request.email());
-            throw new RuntimeException("Email is already registered"); // Note: You can swap this to a custom BusinessException later!
+            throw new EmailAlreadyExistsException(); // Note: You can swap this to a custom BusinessException later!
         }
 
         String hashedPassword = passwordEncoder.encode(request.password());
@@ -61,13 +62,13 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> {
                     log.warn("Login failed - user not found: {}", request.email());
-                    return new RuntimeException("Invalid credentials");
+                    return new InvalidCredentialsException();
                 });
 
         // 2. Check if the password matches the hash in the database
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             log.warn("Login failed - bad password for email: {}", request.email());
-            throw new RuntimeException("Invalid credentials");
+            throw new InvalidCredentialsException();
         }
 
         // 3. Generate the JWT

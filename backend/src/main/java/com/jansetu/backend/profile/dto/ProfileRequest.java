@@ -1,5 +1,6 @@
 package com.jansetu.backend.profile.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.jansetu.backend.profile.entity.Category;
 import com.jansetu.backend.profile.entity.Gender;
 import com.jansetu.backend.profile.entity.MaritalStatus;
@@ -50,11 +51,14 @@ public class ProfileRequest {
     private Occupation primaryOccupation;
 
     @NotNull(message = "Student status is required")
+    @JsonProperty("isStudent")
     private Boolean isStudent;
 
     @NotNull(message = "Farmer status is required")
+    @JsonProperty("isFarmer")
     private Boolean isFarmer;
 
     @NotNull(message = "Disability status is required")
+    @JsonProperty("hasDisability")
     private Boolean hasDisability;
 }

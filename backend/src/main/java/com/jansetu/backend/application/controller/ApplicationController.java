@@ -14,6 +14,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/applications")
 public class ApplicationController {
@@ -37,5 +39,16 @@ public class ApplicationController {
 
         // 2. Now pass the loaded User entity to the service
         return ResponseEntity.ok(applicationService.submitApplication(user, request));
+    }
+    @GetMapping
+    public ResponseEntity<List<ApplicationResponse>> getMyApplications(
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+
+        // 1. Manually look up the User entity from the DB (just like your POST method)
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // 2. Call the method you already wrote in the service!
+        return ResponseEntity.ok(applicationService.getMyApplications(user));
     }
 }
