@@ -1,0 +1,2591 @@
+========== src/test/resources/application.properties ==========
+# --- Database Configuration (PostgreSQL - Matches your dev DB) ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/jansetu
+spring.datasource.username=rupeshtripathi
+spring.datasource.password=
+spring.datasource.driverClassName=org.postgresql.Driver
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=update
+
+# --- Security/JWT Configuration (Required to prevent NullPointerExceptions in Tests) ---
+application.security.jwt.secret-key=dummy-test-key-that-is-at-least-32-chars-long-to-pass-validation
+application.security.jwt.expiration=3600000
+
+# --- Optional: Suppress warnings for cleaner logs ---
+spring.jpa.open-in-view=true
+
+========== src/test/java/com/jansetu/backend/scheme/evaluator/EligibilityEvaluatorTest.java ==========
+package com.jansetu.backend.scheme.evaluator;
+
+import com.jansetu.backend.profile.entity.Category;
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.profile.entity.Occupation;
+import com.jansetu.backend.scheme.entity.EligibilityCriteria;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class EligibilityEvaluatorTest {
+
+    private EligibilityEvaluator evaluator;
+    private CitizenProfile profile;
+
+    @BeforeEach
+    void setUp() {
+        evaluator = new EligibilityEvaluator();
+        profile = new CitizenProfile();
+
+        // Default valid profile setup
+        profile.setDateOfBirth(LocalDate.now().minusYears(20)); // 20 years old
+        profile.setAnnualFamilyIncome(new BigDecimal("200000.00"));
+        profile.setCategory(Category.SC);
+        profile.setPrimaryOccupation(Occupation.STUDENT);
+        profile.setStudent(true);
+        profile.setFarmer(false);
+        profile.setHasDisability(false);
+    }
+
+    @Test
+    void shouldReturnTrueWhenAllCriteriaMatch() {
+        EligibilityCriteria criteria = new EligibilityCriteria();
+        criteria.setMinAge(18);
+        criteria.setMaxFamilyIncome(new BigDecimal("250000.00"));
+        criteria.setRequiredCategories(List.of(Category.SC, Category.ST));
+        criteria.setRequiresStudent(true);
+
+        assertTrue(evaluator.isEligible(profile, criteria));
+    }
+
+    @Test
+    void shouldReturnFalseWhenIncomeIsTooHigh() {
+        EligibilityCriteria criteria = new EligibilityCriteria();
+        criteria.setMaxFamilyIncome(new BigDecimal("150000.00")); // Criteria is 1.5L, Profile is 2L
+
+        assertFalse(evaluator.isEligible(profile, criteria));
+    }
+
+    @Test
+    void shouldReturnFalseWhenAgeIsBelowMinimum() {
+        EligibilityCriteria criteria = new EligibilityCriteria();
+        criteria.setMinAge(25); // Criteria is 25, Profile is 20
+
+        assertFalse(evaluator.isEligible(profile, criteria));
+    }
+
+    @Test
+    void shouldReturnFalseWhenCategoryDoesNotMatch() {
+        EligibilityCriteria criteria = new EligibilityCriteria();
+        criteria.setRequiredCategories(List.of(Category.GENERAL)); // Profile is SC
+
+        assertFalse(evaluator.isEligible(profile, criteria));
+    }
+
+    @Test
+    void shouldReturnTrueWhenCriteriaAreNull() {
+        // If criteria fields are null, they should be ignored (the rule is not enforced)
+        EligibilityCriteria criteria = new EligibilityCriteria();
+
+        assertTrue(evaluator.isEligible(profile, criteria));
+    }
+}
+========== src/test/java/com/jansetu/backend/application/ApplicationIntegrationTest.java ==========
+package com.jansetu.backend.application;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jansetu.backend.application.dto.ApplicationRequest;
+import com.jansetu.backend.auth.entity.Role;
+import com.jansetu.backend.scheme.entity.Scheme;
+import com.jansetu.backend.scheme.repository.SchemeRepository;
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.auth.repository.UserRepository;
+import com.jansetu.backend.profile.entity.*;
+import com.jansetu.backend.profile.repository.CitizenProfileRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.UUID;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+public class ApplicationIntegrationTest {
+    @Autowired
+    private SchemeRepository schemeRepository;
+    private UUID schemeId;
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private CitizenProfileRepository profileRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void setUp() {
+        String testUsername = "testuser";
+
+        // 1. Ensure User exists
+        User user = userRepository.findByEmail(testUsername)
+                .orElseGet(() -> {
+                    User u = new User();
+                    u.setEmail(testUsername);
+                    u.setPasswordHash(passwordEncoder.encode("password123"));
+                    u.setRole(com.jansetu.backend.auth.entity.Role.CITIZEN);
+                    u.setEnabled(true);
+                    return userRepository.saveAndFlush(u);
+                });
+
+        // 2. Refresh user to ensure it is fully managed by Hibernate
+        user = userRepository.findById(user.getId()).orElse(user);
+
+        // 3. Create Profile only if it absolutely doesn't exist
+        if (profileRepository.findByUser(user).isEmpty()) {
+            CitizenProfile profile = new CitizenProfile();
+            profile.setUser(user);
+            profile.setFirstName("Test");
+            profile.setLastName("User");
+            profile.setDateOfBirth(LocalDate.of(1990, 1, 1));
+            profile.setGender(Gender.MALE);
+            profile.setState("Karnataka");
+            profile.setDistrict("Bangalore");
+            profile.setPincode("560000");
+            profile.setCategory(Category.GENERAL);
+            profile.setAnnualFamilyIncome(new BigDecimal("100000.00"));
+            profile.setMaritalStatus(MaritalStatus.SINGLE);
+            profile.setPrimaryOccupation(Occupation.STUDENT);
+            profile.setStudent(true);
+            profile.setFarmer(false);
+            profile.setHasDisability(false);
+
+            profileRepository.saveAndFlush(profile);
+        }
+        Scheme scheme = schemeRepository.findAll()
+                .stream()
+                .filter(s -> s.getName().equals("Ayushman Bharat PM-JAY"))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Test scheme not found"));
+
+        schemeId = scheme.getId();
+    }
+
+    @Test
+    @WithMockUser(username = "testuser")
+    void submitApplication_ValidRequest_Returns200() throws Exception {
+        ApplicationRequest request = new ApplicationRequest();
+        request.setSchemeId(schemeId);
+
+        mockMvc.perform(post("/api/v1/applications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.applicationId").exists())
+                .andExpect(jsonPath("$.status").value("SUBMITTED"))
+                .andExpect(jsonPath("$.schemeName").isNotEmpty());
+
+    }
+}
+========== src/test/java/com/jansetu/backend/BackendApplicationTests.java ==========
+package com.jansetu.backend;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class BackendApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+
+========== src/main/resources/application.properties ==========
+spring.application.name=backend
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/jansetu
+spring.datasource.username=rupeshtripathi
+spring.datasource.password=
+
+spring.jpa.hibernate.ddl-auto=update
+
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+application.security.jwt.secret-key=${JWT_SECRET_KEY}
+application.security.jwt.expiration=${JWT_EXPIRATION:86400000}
+spring.mvc.pathmatch.matching-strategy=ant_path_matcher
+
+
+
+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
+# Groq Configuration (Using OpenAI Compatibility)
+
+# Groq via OpenAI Compatibility
+spring.ai.openai.api-key=${GROQ_API_KEY}
+spring.ai.openai.base-url=https://api.groq.com/openai
+spring.ai.openai.chat.options.model=llama-3.1-8b-instant
+spring.ai.openai.chat.options.temperature=0.7
+========== src/main/java/com/jansetu/backend/dto/response/HealthResponse.java ==========
+package com.jansetu.backend.dto.response;
+
+public record HealthResponse(
+        String status,
+        String application,
+        String version
+) {}
+========== src/main/java/com/jansetu/backend/scheme/dto/SchemeRequest.java ==========
+package com.jansetu.backend.scheme.dto;
+
+import com.jansetu.backend.scheme.entity.EligibilityCriteria;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+public class SchemeRequest {
+
+    @NotBlank(message = "Scheme name is required")
+    private String name;
+
+    @NotBlank(message = "Description is required")
+    private String description;
+
+    @NotNull(message = "Eligibility criteria are required")
+    @Valid // This is crucial for nested validation
+    private EligibilityCriteria eligibilityCriteria;
+}
+========== src/main/java/com/jansetu/backend/scheme/dto/SchemeResponse.java ==========
+package com.jansetu.backend.scheme.dto;
+
+import com.jansetu.backend.scheme.entity.EligibilityCriteria;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.UUID;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class SchemeResponse {
+    private UUID id;
+    private String name;
+    private String description;
+    private EligibilityCriteria eligibilityCriteria;
+}
+========== src/main/java/com/jansetu/backend/scheme/dto/RecommendationResponse.java ==========
+package com.jansetu.backend.scheme.dto;
+
+import lombok.Builder;
+import lombok.Data;
+import java.util.List;
+
+@Data
+@Builder
+public class RecommendationResponse {
+
+    // The actual scheme data so the frontend can reuse their SchemeCard
+    private SchemeResponse scheme;
+
+    // The context for the UI
+    private int matchPercentage;
+    private List<String> matchedCriteria;
+}
+========== src/main/java/com/jansetu/backend/scheme/evaluator/EligibilityEvaluator.java ==========
+package com.jansetu.backend.scheme.evaluator;
+
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.scheme.entity.EligibilityCriteria;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.time.Period;
+
+@Component
+public class EligibilityEvaluator {
+
+    public boolean isEligible(CitizenProfile profile, EligibilityCriteria criteria) {
+
+        // 1. Age Check
+        if (criteria.getMinAge() != null || criteria.getMaxAge() != null) {
+            int age = Period.between(profile.getDateOfBirth(), LocalDate.now()).getYears();
+
+            if (criteria.getMinAge() != null && age < criteria.getMinAge()) return false;
+            if (criteria.getMaxAge() != null && age > criteria.getMaxAge()) return false;
+        }
+
+        // 2. Income Check
+        if (criteria.getMaxFamilyIncome() != null) {
+            // compareTo returns -1 if less, 0 if equal, 1 if greater
+            if (profile.getAnnualFamilyIncome().compareTo(criteria.getMaxFamilyIncome()) > 0) {
+                return false;
+            }
+        }
+
+        // 3. Category Check
+        if (criteria.getRequiredCategories() != null && !criteria.getRequiredCategories().isEmpty()) {
+            if (!criteria.getRequiredCategories().contains(profile.getCategory())) {
+                return false;
+            }
+        }
+
+        // 4. Occupation Check
+        if (criteria.getAllowedOccupations() != null && !criteria.getAllowedOccupations().isEmpty()) {
+            if (!criteria.getAllowedOccupations().contains(profile.getPrimaryOccupation())) {
+                return false;
+            }
+        }
+
+        // 5. Boolean Flag Checks
+        if (criteria.getRequiresStudent() != null && criteria.getRequiresStudent() && !profile.isStudent()) {
+            return false;
+        }
+
+        if (criteria.getRequiresFarmer() != null && criteria.getRequiresFarmer() && !profile.isFarmer()) {
+            return false;
+        }
+
+        if (criteria.getRequiresDisability() != null && criteria.getRequiresDisability() && !profile.isHasDisability()) {
+            return false;
+        }
+
+        // If we survived all checks, the citizen is eligible
+        return true;
+    }
+}
+========== src/main/java/com/jansetu/backend/scheme/repository/SchemeRepository.java ==========
+package com.jansetu.backend.scheme.repository;
+
+import com.jansetu.backend.scheme.entity.Scheme;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.UUID;
+
+@Repository
+public interface SchemeRepository extends JpaRepository<Scheme, UUID> {
+    // For now, we get all the standard methods (save, findById, findAll) for free!
+    // We will add custom JSONB query methods here as soon as we build the search logic.
+}
+========== src/main/java/com/jansetu/backend/scheme/entity/EligibilityCriteria.java ==========
+package com.jansetu.backend.scheme.entity;
+
+import com.jansetu.backend.profile.entity.Category;
+import com.jansetu.backend.profile.entity.Occupation;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Data
+public class EligibilityCriteria {
+    // We use nullable Integer/BigDecimal/Boolean so that if a scheme
+    // doesn't care about a specific rule, it can simply be null in the JSON.
+
+    private Integer minAge;
+    private Integer maxAge;
+    private BigDecimal maxFamilyIncome;
+    private List<Category> requiredCategories;
+    private List<Occupation> allowedOccupations;
+    private Boolean requiresStudent;
+    private Boolean requiresFarmer;
+    private Boolean requiresDisability;
+}
+========== src/main/java/com/jansetu/backend/scheme/entity/Scheme.java ==========
+package com.jansetu.backend.scheme.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.util.UUID;
+
+@Entity
+@Table(name = "schemes")
+@Getter
+@Setter
+public class Scheme {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    // This is the Hybrid JSONB implementation
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", nullable = false)
+    private EligibilityCriteria eligibilityCriteria;
+}
+========== src/main/java/com/jansetu/backend/scheme/controller/MatchingController.java ==========
+package com.jansetu.backend.scheme.controller;
+
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.scheme.dto.RecommendationResponse;
+import com.jansetu.backend.scheme.service.MatchingService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/matching")
+@Tag(name = "Matching API", description = "Endpoints for scheme recommendations")
+public class MatchingController {
+
+    private final MatchingService matchingService;
+
+    public MatchingController(MatchingService matchingService) {
+        this.matchingService = matchingService;
+    }
+
+    @GetMapping("/recommendations")
+    @Operation(summary = "Get personalized scheme recommendations")
+    public ResponseEntity<List<RecommendationResponse>> getRecommendations(
+            @AuthenticationPrincipal User user // <-- Extracts the currently logged-in user!
+    ) {
+        // Now we pass the user directly to your service
+        List<RecommendationResponse> recommendations = matchingService.getRecommendations(user);
+        return ResponseEntity.ok(recommendations);
+    }
+}
+========== src/main/java/com/jansetu/backend/scheme/controller/SchemeController.java ==========
+package com.jansetu.backend.scheme.controller;
+
+import com.jansetu.backend.scheme.dto.SchemeRequest;
+import com.jansetu.backend.scheme.dto.SchemeResponse;
+import com.jansetu.backend.scheme.service.SchemeService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/schemes")
+public class SchemeController {
+
+    private final SchemeService schemeService;
+
+    public SchemeController(SchemeService schemeService) {
+        this.schemeService = schemeService;
+    }
+
+    // --- 1. CREATE SCHEME ---
+    @PostMapping
+    public ResponseEntity<SchemeResponse> createScheme(@Valid @RequestBody SchemeRequest request) {
+        SchemeResponse response = schemeService.createScheme(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteScheme(@PathVariable java.util.UUID id) {
+        schemeService.deleteScheme(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // --- 2. GET ALL SCHEMES ---
+    @GetMapping
+    public ResponseEntity<List<SchemeResponse>> getAllSchemes() {
+        return ResponseEntity.ok(schemeService.getAllSchemes());
+    }
+}
+========== src/main/java/com/jansetu/backend/scheme/service/MatchingService.java ==========
+package com.jansetu.backend.scheme.service;
+
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.profile.service.CitizenProfileService;
+import com.jansetu.backend.scheme.dto.RecommendationResponse;
+import com.jansetu.backend.scheme.dto.SchemeResponse;
+import com.jansetu.backend.scheme.entity.EligibilityCriteria;
+import com.jansetu.backend.scheme.entity.Scheme;
+import com.jansetu.backend.scheme.evaluator.EligibilityEvaluator;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class MatchingService {
+
+    private final CitizenProfileService profileService;
+    private final SchemeService schemeService;
+    private final EligibilityEvaluator evaluator;
+
+    public MatchingService(CitizenProfileService profileService,
+                           SchemeService schemeService,
+                           EligibilityEvaluator evaluator) {
+        this.profileService = profileService;
+        this.schemeService = schemeService;
+        this.evaluator = evaluator;
+    }
+
+    public List<RecommendationResponse> getRecommendations(User user) {
+        // 1. Fetch user profile entity
+        CitizenProfile profile = profileService.getProfileEntity(user);
+
+        // 2. Fetch raw scheme entities
+        List<Scheme> allSchemes = schemeService.getAllSchemesEntities();
+
+        // 3. Filter using your evaluator, map to DTO, and wrap in RecommendationResponse
+        return allSchemes.stream()
+                .filter(scheme -> evaluator.isEligible(profile, scheme.getEligibilityCriteria()))
+                .map(scheme -> {
+                    SchemeResponse schemeDto = mapToResponse(scheme);
+
+                    // ✅ FIX: Actually generate the dynamic reasons!
+                    List<String> dynamicReasons = generateMatchReasons(profile, scheme.getEligibilityCriteria());
+
+                    return RecommendationResponse.builder()
+                            .scheme(schemeDto)
+                            .matchPercentage(100)
+                            .matchedCriteria(dynamicReasons) // ✅ FIX: Pass the dynamically generated list here!
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    // --- NEW HELPER METHOD ---
+    private List<String> generateMatchReasons(CitizenProfile profile, EligibilityCriteria criteria) {
+        List<String> reasons = new ArrayList<>();
+
+        // 1. Boolean Flags
+        if (Boolean.TRUE.equals(criteria.getRequiresFarmer())) {
+            reasons.add("You are a registered farmer.");
+        }
+
+        if (Boolean.TRUE.equals(criteria.getRequiresStudent())) {
+            reasons.add("You are currently a student.");
+        }
+
+        if (Boolean.TRUE.equals(criteria.getRequiresDisability())) {
+            reasons.add("You meet the specific disability criteria.");
+        }
+
+        // 2. Income limits
+        if (criteria.getMaxFamilyIncome() != null) {
+            reasons.add(String.format("Your annual family income is below ₹%,d.", criteria.getMaxFamilyIncome().longValue()));
+        }
+
+        // 3. Lists (Category and Occupation)
+        if (criteria.getRequiredCategories() != null && !criteria.getRequiredCategories().isEmpty()) {
+            // Since they passed the evaluator check, we know their specific category is in the list
+            reasons.add("You belong to the eligible " + profile.getCategory() + " category.");
+        }
+
+        if (criteria.getAllowedOccupations() != null && !criteria.getAllowedOccupations().isEmpty()) {
+            reasons.add("Your primary occupation (" + profile.getPrimaryOccupation() + ") is eligible.");
+        }
+
+        // 4. Age limits
+        if (criteria.getMinAge() != null || criteria.getMaxAge() != null) {
+            reasons.add("Your age falls within the required bracket for this scheme.");
+        }
+
+        // 5. Fallback
+        if (reasons.isEmpty()) {
+            reasons.add("You meet the baseline eligibility requirements for this scheme.");
+        }
+
+        return reasons;
+    }
+
+    // Helper method
+    private SchemeResponse mapToResponse(Scheme scheme) {
+        return new SchemeResponse(
+                scheme.getId(),
+                scheme.getName(),
+                scheme.getDescription(),
+                scheme.getEligibilityCriteria()
+        );
+    }
+}
+========== src/main/java/com/jansetu/backend/scheme/service/SchemeService.java ==========
+package com.jansetu.backend.scheme.service;
+
+import com.jansetu.backend.scheme.dto.SchemeRequest;
+import com.jansetu.backend.scheme.dto.SchemeResponse;
+import com.jansetu.backend.scheme.entity.Scheme;
+import com.jansetu.backend.scheme.repository.SchemeRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class SchemeService {
+
+    private final SchemeRepository schemeRepository;
+
+    public SchemeService(SchemeRepository schemeRepository) {
+        this.schemeRepository = schemeRepository;
+    }
+
+    // --- 1. CREATE SCHEME ---
+    public SchemeResponse createScheme(SchemeRequest request) {
+        Scheme scheme = new Scheme();
+        scheme.setName(request.getName());
+        scheme.setDescription(request.getDescription());
+        scheme.setEligibilityCriteria(request.getEligibilityCriteria());
+
+        Scheme savedScheme = schemeRepository.save(scheme);
+        return mapToResponse(savedScheme);
+    }
+
+    // --- 2. GET ALL SCHEMES ---
+    public List<SchemeResponse> getAllSchemes() {
+        return schemeRepository.findAll().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+    public void deleteScheme(java.util.UUID id) {
+        schemeRepository.deleteById(id);
+    }
+    // Add this method to SchemeService.java
+    public List<Scheme> getAllSchemesEntities() {
+        return schemeRepository.findAll();
+    }
+
+    // --- HELPER: Map Entity to DTO ---
+    private SchemeResponse mapToResponse(Scheme scheme) {
+        return SchemeResponse.builder()
+                .id(scheme.getId())
+                .name(scheme.getName())
+                .description(scheme.getDescription())
+                .eligibilityCriteria(scheme.getEligibilityCriteria())
+                .build();
+    }
+}
+========== src/main/java/com/jansetu/backend/scheme/exception/SchemeNotFoundException.java ==========
+package com.jansetu.backend.scheme.exception;
+
+import com.jansetu.backend.common.exception.BusinessException;
+
+public class SchemeNotFoundException extends BusinessException {
+
+    public SchemeNotFoundException(String message) {
+        super(message);
+    }
+
+}
+========== src/main/java/com/jansetu/backend/config/ApplicationConfig.java ==========
+package com.jansetu.backend.config;
+
+import com.jansetu.backend.auth.repository.UserRepository;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
+@Configuration
+public class ApplicationConfig {
+
+    private final UserRepository userRepository;
+
+    public ApplicationConfig(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return username -> userRepository.findByEmail(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
+}
+========== src/main/java/com/jansetu/backend/config/SecurityConfig.java ==========
+package com.jansetu.backend.config;
+
+import com.jansetu.backend.auth.security.JwtAuthenticationFilter;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
+@Configuration
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter) {
+        this.jwtAuthFilter = jwtAuthFilter;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+
+        return authProvider;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            AuthenticationProvider authProvider
+    ) throws Exception {
+
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> {})
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/v1/auth/**",
+                                "/api/v1/ai/**",      // <-- ADD THIS
+                                "/api/v1/health",     // <-- ADD THIS
+                                "/v3/api-docs",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/error"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authenticationProvider(authProvider)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")
+        );
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
+    }
+}
+========== src/main/java/com/jansetu/backend/config/OpenApiConfig.java ==========
+package com.jansetu.backend.config;
+
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class OpenApiConfig {
+
+    @Bean
+    public OpenAPI customOpenAPI() {
+        final String securitySchemeName = "bearerAuth";
+
+        return new OpenAPI()
+                .info(new Info()
+                        .title("JanSetu API")
+                        .version("1.0")
+                        .description("API documentation for the JanSetu platform"))
+                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
+                .components(new Components()
+                        .addSecuritySchemes(securitySchemeName, new SecurityScheme()
+                                .name(securitySchemeName)
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")));
+    }
+}
+========== src/main/java/com/jansetu/backend/auth/dto/RegisterRequest.java ==========
+package com.jansetu.backend.auth.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record RegisterRequest(
+        @NotBlank(message = "Email is required")
+        @Email(message = "Email format is invalid")
+        String email,
+
+        @NotBlank(message = "Password is required")
+        @Size(min = 8, message = "Password must be at least 8 characters long")
+        String password
+) {}
+========== src/main/java/com/jansetu/backend/auth/dto/RegisterResponse.java ==========
+package com.jansetu.backend.auth.dto;
+
+import java.util.UUID;
+
+public record RegisterResponse(
+        UUID userId,
+        String message
+) {}
+========== src/main/java/com/jansetu/backend/auth/dto/LoginRequest.java ==========
+package com.jansetu.backend.auth.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record LoginRequest(
+        @NotBlank(message = "Email is required")
+        @Email(message = "Email format is invalid")
+        String email,
+
+        @NotBlank(message = "Password is required")
+        @Size(min = 8, message = "Password must be at least 8 characters long")
+        String password
+) {}
+========== src/main/java/com/jansetu/backend/auth/dto/LoginResponse.java ==========
+package com.jansetu.backend.auth.dto;
+
+public record LoginResponse(
+        String accessToken,
+        String tokenType,
+        long expiresIn
+) {}
+========== src/main/java/com/jansetu/backend/auth/repository/UserRepository.java ==========
+package com.jansetu.backend.auth.repository;
+
+import com.jansetu.backend.auth.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface UserRepository extends JpaRepository<User, UUID> {
+
+    Optional<User> findByEmail(String email);
+
+}
+========== src/main/java/com/jansetu/backend/auth/security/JwtAuthenticationFilter.java ==========
+package com.jansetu.backend.auth.security;
+
+import com.jansetu.backend.auth.service.JwtService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
+    }
+
+    @Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
+
+        // 1. Look for the "Authorization" header
+        final String authHeader = request.getHeader("Authorization");
+        final String jwt;
+        final String userEmail;
+
+        // 2. If there is no token, or it doesn't start with "Bearer ", ignore it and move on
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // 3. Extract the token (Remove "Bearer " from the string)
+        jwt = authHeader.substring(7);
+        userEmail = jwtService.extractUsername(jwt);
+
+        // 4. If we found an email, and the user isn't already authenticated in this session...
+        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+
+            // Load the user from the database
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+
+            // 5. If the token is valid, formally authenticate them with Spring Security
+            if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                // This is the VIP list update. We tell Spring: "This user is logged in!"
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        }
+
+        // 6. Continue to the next filter in the chain (or the controller)
+        filterChain.doFilter(request, response);
+    }
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return path.startsWith("/api/v1/auth/") ||
+                path.startsWith("/swagger-ui/") ||
+                path.startsWith("/v3/api-docs");
+    }
+}
+========== src/main/java/com/jansetu/backend/auth/entity/User.java ==========
+package com.jansetu.backend.auth.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
+public class User implements UserDetails {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role = Role.CITIZEN;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
+
+    @CreationTimestamp
+    @Column(updatable = false)
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    private Instant updatedAt;
+
+    // --- SPRING SECURITY USERDETAILS TRANSLATION METHODS ---
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
+    }
+
+    @Override
+    public String getPassword() {
+        return passwordHash;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+}
+========== src/main/java/com/jansetu/backend/auth/entity/Role.java ==========
+package com.jansetu.backend.auth.entity;
+
+public enum Role {
+    CITIZEN,
+    ADMIN
+}
+========== src/main/java/com/jansetu/backend/auth/controller/DemoController.java ==========
+package com.jansetu.backend.auth.controller;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/demo")
+public class DemoController {
+
+    @GetMapping
+    public ResponseEntity<String> sayHello() {
+        return ResponseEntity.ok("Hello from a fully secured API endpoint! Your JWT worked.");
+    }
+}
+========== src/main/java/com/jansetu/backend/auth/controller/AuthController.java ==========
+package com.jansetu.backend.auth.controller;
+
+import com.jansetu.backend.auth.dto.LoginRequest;
+import com.jansetu.backend.auth.dto.LoginResponse;
+import com.jansetu.backend.auth.dto.RegisterRequest;
+import com.jansetu.backend.auth.dto.RegisterResponse;
+import com.jansetu.backend.auth.service.AuthService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/auth")
+public class AuthController {
+
+    private final AuthService authService;
+
+    // Constructor Injection
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
+        RegisterResponse response = authService.register(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+}
+========== src/main/java/com/jansetu/backend/auth/service/JwtService.java ==========
+package com.jansetu.backend.auth.service;
+
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.util.Date;
+
+@Service
+public class JwtService {
+
+    // 1. Spring pulls these values from your environment variables/properties!
+    @Value("${application.security.jwt.secret-key}")
+    private String secretKey;
+
+    @Value("${application.security.jwt.expiration}")
+    private long jwtExpiration;
+
+    // 2. Convert the secret string into a cryptographic key
+    private SecretKey getSignInKey() {
+        byte[] keyBytes = secretKey.getBytes();
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    // 3. Generate the actual VIP Badge
+    public String generateToken(String email) {
+        return Jwts.builder()
+                .subject(email) // The "who" this badge belongs to
+                .issuedAt(new Date(System.currentTimeMillis())) // The "when" it was printed
+                .expiration(new Date(System.currentTimeMillis() + jwtExpiration)) // The "when" it expires
+                .signWith(getSignInKey()) // The cryptographic signature
+                .compact(); // Squishes it all into the final String token
+    }
+    // NEW: Extract the email (subject) from the token
+    public String extractUsername(String token) {
+        return Jwts.parser()
+                .verifyWith(getSignInKey()) // Uses our secret key to check the signature!
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+    }
+
+    // NEW: Check if the token is valid for the specific user
+    public boolean isTokenValid(String token, String userEmail) {
+        final String extractedUsername = extractUsername(token);
+        return (extractedUsername.equals(userEmail) && !isTokenExpired(token));
+    }
+
+    // NEW: Helper method to check expiration
+    private boolean isTokenExpired(String token) {
+        Date expiration = Jwts.parser()
+                .verifyWith(getSignInKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getExpiration();
+        return expiration.before(new Date());
+    }
+}
+========== src/main/java/com/jansetu/backend/auth/service/AuthService.java ==========
+package com.jansetu.backend.auth.service;
+
+import com.jansetu.backend.auth.dto.LoginRequest;
+import com.jansetu.backend.auth.dto.LoginResponse;
+import com.jansetu.backend.auth.dto.RegisterRequest;
+import com.jansetu.backend.auth.dto.RegisterResponse;
+import com.jansetu.backend.auth.entity.Role;
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.auth.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import com.jansetu.backend.auth.exception.EmailAlreadyExistsException;
+import com.jansetu.backend.auth.exception.InvalidCredentialsException;
+import java.util.Optional;
+
+@Slf4j
+@Service
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+
+    @Value("${application.security.jwt.expiration}")
+    private long jwtExpiration;
+
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+    }
+
+    public RegisterResponse register(RegisterRequest request) {
+        log.info("Attempting to register new user with email: {}", request.email());
+
+        Optional<User> existingUser = userRepository.findByEmail(request.email());
+        if (existingUser.isPresent()) {
+            log.warn("Registration failed - email already exists: {}", request.email());
+            throw new EmailAlreadyExistsException(); // Note: You can swap this to a custom BusinessException later!
+        }
+
+        String hashedPassword = passwordEncoder.encode(request.password());
+
+        User user = new User();
+        user.setEmail(request.email());
+        user.setPasswordHash(hashedPassword);
+        user.setRole(Role.CITIZEN);
+        user.setEnabled(true);
+
+        User savedUser = userRepository.save(user);
+
+        log.info("Successfully registered user: {}", savedUser.getEmail());
+        return new RegisterResponse(savedUser.getId(), "User registered successfully");
+    }
+
+    public LoginResponse login(LoginRequest request) {
+        log.info("Login attempt for email: {}", request.email());
+
+        // 1. Find the user by email
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> {
+                    log.warn("Login failed - user not found: {}", request.email());
+                    return new InvalidCredentialsException();
+                });
+
+        // 2. Check if the password matches the hash in the database
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            log.warn("Login failed - bad password for email: {}", request.email());
+            throw new InvalidCredentialsException();
+        }
+
+        // 3. Generate the JWT
+        String jwtToken = jwtService.generateToken(user.getEmail());
+
+        log.info("User {} successfully logged in", user.getEmail());
+        // 4. Return the VIP Badge
+        return new LoginResponse(jwtToken, "Bearer", jwtExpiration);
+    }
+}
+========== src/main/java/com/jansetu/backend/auth/exception/InvalidCredentialsException.java ==========
+package com.jansetu.backend.auth.exception;
+
+import com.jansetu.backend.common.exception.BusinessException;
+
+public class InvalidCredentialsException extends BusinessException {
+
+    public InvalidCredentialsException() {
+        super("Invalid email or password.");
+    }
+}
+========== src/main/java/com/jansetu/backend/auth/exception/EmailAlreadyExistsException.java ==========
+package com.jansetu.backend.auth.exception;
+
+import com.jansetu.backend.common.exception.BusinessException;
+
+public class EmailAlreadyExistsException extends BusinessException {
+
+    public EmailAlreadyExistsException() {
+        super("Email is already registered.");
+    }
+}
+========== src/main/java/com/jansetu/backend/controller/HealthController.java ==========
+package com.jansetu.backend.controller;
+
+import com.jansetu.backend.dto.response.HealthResponse;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class HealthController {
+
+    @GetMapping("/api/v1/health")
+    public HealthResponse health() {
+        return new HealthResponse(
+                "UP",
+                "JanSetu",
+                "1.0.0"
+        );
+    }
+}
+========== src/main/java/com/jansetu/backend/common/dto/ErrorResponse.java ==========
+package com.jansetu.backend.common.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+import java.time.LocalDateTime;
+
+@Getter
+@Builder
+public class ErrorResponse {
+    private LocalDateTime timestamp;
+    private int status;
+    private String error;
+    private String message;
+}
+========== src/main/java/com/jansetu/backend/common/exception/GlobalExceptionHandler.java ==========
+package com.jansetu.backend.common.exception;
+
+import com.jansetu.backend.application.exception.*;
+import com.jansetu.backend.common.dto.ErrorResponse;
+import com.jansetu.backend.profile.exception.ProfileNotFoundException;
+import com.jansetu.backend.scheme.exception.SchemeNotFoundException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.jansetu.backend.auth.exception.EmailAlreadyExistsException;
+import com.jansetu.backend.auth.exception.InvalidCredentialsException;
+import java.time.LocalDateTime;
+import java.util.stream.Collectors;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(
+            InvalidCredentialsException ex) {
+
+        return buildResponse(
+                HttpStatus.UNAUTHORIZED,
+                "Unauthorized",
+                ex.getMessage()
+        );
+    }
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleEmailAlreadyExists(
+            EmailAlreadyExistsException ex) {
+
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "Conflict",
+                ex.getMessage()
+        );
+    }
+
+    // Handle Not Found exceptions (404)
+    @ExceptionHandler({ProfileNotFoundException.class, SchemeNotFoundException.class})
+    public ResponseEntity<ErrorResponse> handleNotFound(BusinessException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage());
+    }
+
+    // Handle Conflict exceptions (409)
+    @ExceptionHandler(DuplicateApplicationException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(DuplicateApplicationException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
+    // Handle Bad Request exceptions (400)
+    @ExceptionHandler(IneligibleException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(IneligibleException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
+    // Handle Validation Errors (400)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        // Collect all validation error messages into a single comma-separated string
+        String errorMessage = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+
+        return buildResponse(HttpStatus.BAD_REQUEST, "Validation Failed", errorMessage);
+    }
+
+    // Fallback for unexpected exceptions (500)
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        // This prints the error in your console so you can actually debug it
+        log.error("An unexpected error occurred: ", ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred. Please try again later.");
+    }
+
+    // Helper method to keep code clean
+    private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String error, String message) {
+        ErrorResponse response = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(status.value())
+                .error(error)
+                .message(message)
+                .build();
+        return new ResponseEntity<>(response, status);
+    }
+}
+========== src/main/java/com/jansetu/backend/common/exception/BusinessException.java ==========
+package com.jansetu.backend.common.exception;
+
+public abstract class BusinessException extends RuntimeException {
+    public BusinessException(String message) {
+        super(message);
+    }
+}
+========== src/main/java/com/jansetu/backend/profile/dto/ProfileRequest.java ==========
+package com.jansetu.backend.profile.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.jansetu.backend.profile.entity.Category;
+import com.jansetu.backend.profile.entity.Gender;
+import com.jansetu.backend.profile.entity.MaritalStatus;
+import com.jansetu.backend.profile.entity.Occupation;
+import jakarta.validation.constraints.*;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Data
+public class ProfileRequest {
+
+    @NotBlank(message = "First name is required")
+    private String firstName;
+
+    @NotBlank(message = "Last name is required")
+    private String lastName;
+
+    @NotNull(message = "Date of birth is required")
+    @Past(message = "Date of birth must be in the past")
+    private LocalDate dateOfBirth;
+
+    @NotNull(message = "Gender is required")
+    private Gender gender;
+
+    @NotBlank(message = "State is required")
+    private String state;
+
+    @NotBlank(message = "District is required")
+    private String district;
+
+    @NotBlank(message = "Pincode is required")
+    @Pattern(regexp = "^[1-9][0-9]{5}$", message = "Must be a valid 6-digit Indian pincode")
+    private String pincode;
+
+    @NotNull(message = "Category is required")
+    private Category category;
+
+    @NotNull(message = "Annual family income is required")
+    @Min(value = 0, message = "Income cannot be negative")
+    private BigDecimal annualFamilyIncome;
+
+    @NotNull(message = "Marital status is required")
+    private MaritalStatus maritalStatus;
+
+    @NotNull(message = "Primary occupation is required")
+    private Occupation primaryOccupation;
+
+    @NotNull(message = "Student status is required")
+    @JsonProperty("isStudent")
+    private Boolean isStudent;
+
+    @NotNull(message = "Farmer status is required")
+    @JsonProperty("isFarmer")
+    private Boolean isFarmer;
+
+    @NotNull(message = "Disability status is required")
+    @JsonProperty("hasDisability")
+    private Boolean hasDisability;
+}
+========== src/main/java/com/jansetu/backend/profile/dto/ProfileResponse.java ==========
+package com.jansetu.backend.profile.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.jansetu.backend.profile.entity.Category;
+import com.jansetu.backend.profile.entity.Gender;
+import com.jansetu.backend.profile.entity.MaritalStatus;
+import com.jansetu.backend.profile.entity.Occupation;
+import lombok.Builder;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+
+@Data
+@Builder
+public class ProfileResponse {
+
+    private UUID profileId;
+
+    // Core Identity
+    private String firstName;
+    private String lastName;
+    private LocalDate dateOfBirth;
+    private Gender gender;
+
+    // Location
+    private String state;
+    private String district;
+    private String pincode;
+
+    // Socio-Economic Triggers
+    private Category category;
+    private BigDecimal annualFamilyIncome;
+    private MaritalStatus maritalStatus;
+    private Occupation primaryOccupation;
+
+    // Special Flags
+    @JsonProperty("isStudent")
+    private Boolean isStudent;
+
+    @JsonProperty("isFarmer")
+    private Boolean isFarmer;
+
+    @JsonProperty("hasDisability")
+    private Boolean hasDisability;
+
+    // Metadata
+    private Instant lastUpdated;
+}
+========== src/main/java/com/jansetu/backend/profile/repository/CitizenProfileRepository.java ==========
+package com.jansetu.backend.profile.repository;
+
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface CitizenProfileRepository extends JpaRepository<CitizenProfile, UUID> {
+
+    // Spring Data JPA magic: We just name the method correctly, and Spring writes the SQL!
+    Optional<CitizenProfile> findByUser(User user);
+    Optional<CitizenProfile> findByUserEmail(String email);
+    Optional<CitizenProfile> findByUser_Id(UUID userId);
+
+}
+========== src/main/java/com/jansetu/backend/profile/entity/Occupation.java ==========
+package com.jansetu.backend.profile.entity;
+
+public enum Occupation {
+    SALARIED, BUSINESS, DAILY_WAGE, UNEMPLOYED, STUDENT, FARMER
+}
+========== src/main/java/com/jansetu/backend/profile/entity/Category.java ==========
+package com.jansetu.backend.profile.entity;
+
+public enum Category {
+    GENERAL, OBC, SC, ST
+}
+========== src/main/java/com/jansetu/backend/profile/entity/CitizenProfile.java ==========
+package com.jansetu.backend.profile.entity;
+
+import com.jansetu.backend.auth.entity.User;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+
+@Entity
+@Table(name = "citizen_profiles")
+@Getter
+@Setter
+@NoArgsConstructor
+public class CitizenProfile {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    // --- THE CRITICAL RELATIONSHIP ---
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false, unique = true)
+    private User user;
+
+    // --- DEMOGRAPHICS ---
+    @Column(nullable = false)
+    private String firstName;
+
+    @Column(nullable = false)
+    private String lastName;
+
+    @Column(nullable = false)
+    private LocalDate dateOfBirth;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Gender gender;
+
+    // --- LOCATION ---
+    @Column(nullable = false)
+    private String state;
+
+    @Column(nullable = false)
+    private String district;
+
+    @Column(nullable = false, length = 6)
+    private String pincode;
+
+    // --- SOCIO-ECONOMIC TRIGGERS ---
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Category category;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal annualFamilyIncome;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MaritalStatus maritalStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Occupation primaryOccupation;
+
+    // --- SPECIAL ELIGIBILITY FLAGS ---
+    @Column(nullable = false)
+    private boolean isStudent;
+
+    @Column(nullable = false)
+    private boolean isFarmer;
+
+    @Column(nullable = false)
+    private boolean hasDisability;
+
+    // --- AUDIT FIELDS ---
+    @CreationTimestamp
+    @Column(updatable = false)
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    private Instant updatedAt;
+}
+========== src/main/java/com/jansetu/backend/profile/entity/MaritalStatus.java ==========
+package com.jansetu.backend.profile.entity;
+
+public enum MaritalStatus {
+    SINGLE, MARRIED, WIDOWED, DIVORCED
+}
+========== src/main/java/com/jansetu/backend/profile/entity/Gender.java ==========
+package com.jansetu.backend.profile.entity;
+
+public enum Gender {
+    MALE, FEMALE, OTHER
+}
+========== src/main/java/com/jansetu/backend/profile/controller/CitizenProfileController.java ==========
+package com.jansetu.backend.profile.controller;
+
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.profile.dto.ProfileRequest;
+import com.jansetu.backend.profile.dto.ProfileResponse;
+import com.jansetu.backend.profile.service.CitizenProfileService;
+import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/citizen/profile")
+public class CitizenProfileController {
+
+    private final CitizenProfileService profileService;
+
+    public CitizenProfileController(CitizenProfileService profileService) {
+        this.profileService = profileService;
+    }
+
+    // --- 1. CREATE PROFILE ---
+    @PostMapping
+    public ResponseEntity<ProfileResponse> createProfile(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody ProfileRequest request) {
+
+        ProfileResponse response = profileService.createProfile(user, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    // --- 2. GET PROFILE ---
+    @GetMapping
+    public ResponseEntity<ProfileResponse> getProfile(@AuthenticationPrincipal User user) {
+
+        ProfileResponse response = profileService.getProfile(user);
+        return ResponseEntity.ok(response);
+    }
+
+    // --- 3. UPDATE PROFILE ---
+    @PutMapping
+    public ResponseEntity<ProfileResponse> updateProfile(
+            @Parameter(hidden = true)@AuthenticationPrincipal User user,
+            @Valid @RequestBody ProfileRequest request) {
+
+        ProfileResponse response = profileService.updateProfile(user, request);
+        return ResponseEntity.ok(response);
+    }
+}
+========== src/main/java/com/jansetu/backend/profile/service/CitizenProfileService.java ==========
+package com.jansetu.backend.profile.service;
+
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.profile.dto.ProfileRequest;
+import com.jansetu.backend.profile.dto.ProfileResponse;
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.profile.exception.ProfileNotFoundException;
+import com.jansetu.backend.profile.repository.CitizenProfileRepository;
+import org.springframework.stereotype.Service;
+
+@Service
+public class CitizenProfileService {
+
+    private final CitizenProfileRepository profileRepository;
+
+    public CitizenProfileService(CitizenProfileRepository profileRepository) {
+        this.profileRepository = profileRepository;
+    }
+
+    // --- 1. CREATE PROFILE ---
+    public ProfileResponse createProfile(User user, ProfileRequest request) {
+        // Business Rule: A user can only have ONE profile.
+        if (profileRepository.findByUser(user).isPresent()) {
+            throw new IllegalStateException("A profile already exists for this user.");
+        }
+
+        CitizenProfile profile = new CitizenProfile();
+        profile.setUser(user); // Establish the OneToOne link
+
+        updateProfileFields(profile, request);
+
+        CitizenProfile savedProfile = profileRepository.save(profile);
+        return mapToResponse(savedProfile);
+    }
+
+    // --- 2. GET PROFILE ---
+    public ProfileResponse getProfile(User user) {
+        return mapToResponse(getProfileEntity(user));
+    }
+
+    // --- 3. UPDATE PROFILE ---
+    public ProfileResponse updateProfile(User user, ProfileRequest request) {
+        CitizenProfile profile = profileRepository.findByUser(user)
+                .orElseThrow(() -> new ProfileNotFoundException("Profile not found"));
+
+        updateProfileFields(profile, request);
+
+        CitizenProfile updatedProfile = profileRepository.save(profile);
+        return mapToResponse(updatedProfile);
+    }
+
+    // --- HELPER: Map Data from DTO to Entity ---
+    private void updateProfileFields(CitizenProfile profile, ProfileRequest request) {
+        profile.setFirstName(request.getFirstName());
+        profile.setLastName(request.getLastName());
+        profile.setDateOfBirth(request.getDateOfBirth());
+        profile.setGender(request.getGender());
+        profile.setState(request.getState());
+        profile.setDistrict(request.getDistrict());
+        profile.setPincode(request.getPincode());
+        profile.setCategory(request.getCategory());
+        profile.setAnnualFamilyIncome(request.getAnnualFamilyIncome());
+        profile.setMaritalStatus(request.getMaritalStatus());
+        profile.setPrimaryOccupation(request.getPrimaryOccupation());
+
+        // Note: Boolean objects in DTO use getter, boolean primitives in Entity use setter
+        profile.setStudent(request.getIsStudent());
+        profile.setFarmer(request.getIsFarmer());
+        profile.setHasDisability(request.getHasDisability());
+    }
+    public CitizenProfile getProfileByEmail(String email) {
+        return profileRepository.findByUserEmail(email)
+                .orElseThrow(() -> new ProfileNotFoundException("Profile not found"));
+    }
+    public CitizenProfile getProfileEntity(User user) {
+        // Use the ID instead of the User object reference
+        return profileRepository.findByUser_Id(user.getId())
+                .orElseThrow(() -> new ProfileNotFoundException("Profile not found"));
+    }
+
+    // --- HELPER: Map Data from Entity to DTO ---
+    private ProfileResponse mapToResponse(CitizenProfile profile) {
+        return ProfileResponse.builder()
+                .profileId(profile.getId())
+                .firstName(profile.getFirstName())
+                .lastName(profile.getLastName())
+                .dateOfBirth(profile.getDateOfBirth())
+                .gender(profile.getGender())
+                .state(profile.getState())
+                .district(profile.getDistrict())
+                .pincode(profile.getPincode())
+                .category(profile.getCategory())
+                .annualFamilyIncome(profile.getAnnualFamilyIncome())
+                .maritalStatus(profile.getMaritalStatus())
+                .primaryOccupation(profile.getPrimaryOccupation())
+                .isStudent(profile.isStudent())
+                .isFarmer(profile.isFarmer())
+                .hasDisability(profile.isHasDisability())
+                .lastUpdated(profile.getUpdatedAt()) // Returns the auto-generated timestamp
+                .build();
+    }
+}
+========== src/main/java/com/jansetu/backend/profile/exception/ProfileNotFoundException.java ==========
+package com.jansetu.backend.profile.exception;
+
+import com.jansetu.backend.common.exception.BusinessException;
+
+public class ProfileNotFoundException extends BusinessException {
+
+    public ProfileNotFoundException(String message) {
+        super(message);
+    }
+
+}
+========== src/main/java/com/jansetu/backend/ai/dto/ChatRequest.java ==========
+package com.jansetu.backend.ai.dto;
+
+public record ChatRequest(
+        String message
+) {
+}
+========== src/main/java/com/jansetu/backend/ai/dto/ChatResponse.java ==========
+package com.jansetu.backend.ai.dto;
+
+public record ChatResponse(
+        String response
+) {
+}
+========== src/main/java/com/jansetu/backend/ai/dto/ExplainResponse.java ==========
+package com.jansetu.backend.ai.dto;
+
+public record ExplainResponse(
+        String explanation
+) {}
+========== src/main/java/com/jansetu/backend/ai/dto/ExplainRequest.java ==========
+package com.jansetu.backend.ai.dto;
+
+import java.util.List;
+
+public record ExplainRequest(
+        String userProfileSummary,
+        String schemeName,
+        String schemeDescription,
+        List<String> matchedCriteria
+) {}
+========== src/main/java/com/jansetu/backend/ai/context/ContextBuilder.java ==========
+package com.jansetu.backend.ai.context;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class ContextBuilder {
+
+    public String buildProfileSummary() {
+
+        // TODO:
+        // In next sprint this will fetch:
+        //
+        // Citizen Profile
+        // Income
+        // Occupation
+        // Category
+        // Age
+        //
+        // from database.
+
+        return "Profile information unavailable.";
+    }
+
+    public String buildRecommendationsSummary() {
+
+        // TODO:
+        // Fetch recommendations from MatchingService
+
+        return "No recommendation context available.";
+    }
+
+    public String buildApplicationSummary() {
+
+        // TODO:
+        // Fetch citizen applications
+
+        return "No application history.";
+    }
+
+}
+========== src/main/java/com/jansetu/backend/ai/controller/AIController.java ==========
+package com.jansetu.backend.ai.controller;
+
+import com.jansetu.backend.ai.dto.ChatRequest;
+import com.jansetu.backend.ai.dto.ChatResponse;
+import com.jansetu.backend.ai.dto.ExplainRequest;
+import com.jansetu.backend.ai.dto.ExplainResponse;
+import com.jansetu.backend.ai.service.AIService;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/ai")
+@CrossOrigin(origins = "*")
+public class AIController {
+
+    private final AIService aiService;
+
+    public AIController(AIService aiService) {
+        this.aiService = aiService;
+    }
+
+    @PostMapping("/explain")
+    public ExplainResponse explainEligibility(
+            @RequestBody ExplainRequest request
+    ) {
+
+        String explanation = aiService.explainEligibility(request);
+
+        return new ExplainResponse(explanation);
+    }
+    @PostMapping("/chat")
+    public ChatResponse chat(
+            @RequestBody ChatRequest request
+    ) {
+
+        String response = aiService.chat(request);
+
+        return new ChatResponse(response);
+    }
+}
+========== src/main/java/com/jansetu/backend/ai/prompt/PromptBuilder.java ==========
+package com.jansetu.backend.ai.prompt;
+
+import org.springframework.stereotype.Component;
+
+@Component
+public class PromptBuilder {
+
+    public String buildChatPrompt(
+            String profileSummary,
+            String recommendations,
+            String applications,
+            String question
+    ) {
+
+        return """
+                You are JanSetu AI.
+
+                You help Indian citizens understand government welfare schemes.
+
+                You must ONLY answer questions related to:
+
+                - Government schemes
+                - Eligibility
+                - Applications
+                - Required documents
+                - Recommendations
+
+                If the question is unrelated, politely refuse.
+
+                ------------------------
+
+                Citizen Profile:
+
+                %s
+
+                ------------------------
+
+                Recommended Schemes:
+
+                %s
+
+                ------------------------
+
+                Existing Applications:
+
+                %s
+
+                ------------------------
+
+                User Question:
+
+                %s
+
+                Give concise answers.
+
+                Use bullet points whenever possible.
+
+                Maximum 6 sentences.
+                """
+                .formatted(
+                        profileSummary,
+                        recommendations,
+                        applications,
+                        question
+                );
+    }
+
+}
+========== src/main/java/com/jansetu/backend/ai/service/AIService.java ==========
+package com.jansetu.backend.ai.service;
+
+import com.jansetu.backend.ai.context.ContextBuilder;
+import com.jansetu.backend.ai.dto.ChatRequest;
+import com.jansetu.backend.ai.dto.ExplainRequest;
+import com.jansetu.backend.ai.prompt.PromptBuilder;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AIService {
+
+    private final ChatClient chatClient;
+
+    private final PromptBuilder promptBuilder;
+
+    private final ContextBuilder contextBuilder;
+
+    public AIService(
+            ChatClient.Builder builder,
+            PromptBuilder promptBuilder,
+            ContextBuilder contextBuilder
+    ) {
+        this.chatClient = builder.build();
+        this.promptBuilder = promptBuilder;
+        this.contextBuilder = contextBuilder;
+    }
+
+    public String explainEligibility(ExplainRequest request) {
+
+        String systemPrompt = """
+                You are an expert advisor for JanSetu.
+
+                Explain eligibility.
+
+                Keep it under four sentences.
+
+                Use bullets.
+
+                Do not hallucinate.
+
+                Only use supplied information.
+                """;
+
+        String userPrompt = String.format("""
+                        User Profile:
+                        %s
+
+                        Scheme:
+                        %s
+
+                        Description:
+                        %s
+
+                        Matched Criteria:
+                        %s
+                        """,
+                request.userProfileSummary(),
+                request.schemeName(),
+                request.schemeDescription(),
+                String.join(", ", request.matchedCriteria())
+        );
+
+        return chatClient.prompt()
+                .system(systemPrompt)
+                .user(userPrompt)
+                .call()
+                .content();
+    }
+
+    public String chat(ChatRequest request) {
+
+        String prompt = promptBuilder.buildChatPrompt(
+                contextBuilder.buildProfileSummary(),
+                contextBuilder.buildRecommendationsSummary(),
+                contextBuilder.buildApplicationSummary(),
+                request.message()
+        );
+
+        return chatClient.prompt()
+                .user(prompt)
+                .call()
+                .content();
+    }
+
+}
+========== src/main/java/com/jansetu/backend/application/dto/ApplicationRequest.java ==========
+package com.jansetu.backend.application.dto;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import java.util.UUID;
+
+@Data
+public class ApplicationRequest {
+    @NotNull(message = "Scheme ID is required")
+    private UUID schemeId;
+}
+========== src/main/java/com/jansetu/backend/application/dto/ApplicationResponse.java ==========
+package com.jansetu.backend.application.dto;
+
+import com.jansetu.backend.application.enums.ApplicationStatus;
+import lombok.Builder;
+import lombok.Data;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Data
+@Builder
+public class ApplicationResponse {
+    private UUID applicationId;
+    private UUID schemeId; // <--- Add this line
+    private String schemeName;
+    private ApplicationStatus status;
+    private String remarks;
+    private LocalDateTime submittedAt;
+    private LocalDateTime updatedAt;
+}
+========== src/main/java/com/jansetu/backend/application/repository/ApplicationRepository.java ==========
+package com.jansetu.backend.application.repository;
+
+import com.jansetu.backend.application.entity.Application;
+import com.jansetu.backend.application.enums.ApplicationStatus;
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.scheme.entity.Scheme;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface ApplicationRepository extends JpaRepository<Application, UUID> {
+
+    // 1. Used to prevent duplicates.
+    // We check if an application exists for this profile and scheme that is NOT REJECTED or WITHDRAWN
+    boolean existsByCitizenProfileAndSchemeAndStatusNot(
+            CitizenProfile profile,
+            Scheme scheme,
+            ApplicationStatus status
+    );
+
+    // 2. Used for the GET /applications/my endpoint
+    List<Application> findByCitizenProfile(CitizenProfile profile);
+}
+========== src/main/java/com/jansetu/backend/application/entity/Application.java ==========
+package com.jansetu.backend.application.entity;
+
+import com.jansetu.backend.application.enums.ApplicationStatus;
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.scheme.entity.Scheme;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "applications")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Application {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "profile_id", nullable = false)
+    private CitizenProfile citizenProfile;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scheme_id", nullable = false)
+    private Scheme scheme;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ApplicationStatus status;
+
+    @Column(columnDefinition = "TEXT")
+    private String remarks;
+
+    @CreationTimestamp
+    private LocalDateTime submittedAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
+}
+========== src/main/java/com/jansetu/backend/application/enums/ApplicationStatus.java ==========
+package com.jansetu.backend.application.enums;
+
+public enum ApplicationStatus {
+    DRAFT,
+    SUBMITTED,
+    UNDER_REVIEW,
+    APPROVED,
+    REJECTED,
+    WITHDRAWN // Good to have for the "oops I made a typo" scenario
+}
+========== src/main/java/com/jansetu/backend/application/controller/ApplicationController.java ==========
+package com.jansetu.backend.application.controller;
+
+import com.jansetu.backend.application.dto.ApplicationRequest;
+import com.jansetu.backend.application.dto.ApplicationResponse;
+import com.jansetu.backend.application.service.ApplicationService;
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.auth.repository.UserRepository; // Add this
+import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/applications")
+public class ApplicationController {
+
+    private final ApplicationService applicationService;
+    private final UserRepository userRepository; // Add this
+
+    public ApplicationController(ApplicationService applicationService, UserRepository userRepository) {
+        this.applicationService = applicationService;
+        this.userRepository = userRepository;
+    }
+
+    @PostMapping
+    public ResponseEntity<ApplicationResponse> submitApplication(
+            @Parameter(hidden = true)@AuthenticationPrincipal UserDetails userDetails, // Change to UserDetails
+            @Valid @RequestBody ApplicationRequest request) {
+
+        // 1. Manually look up the User entity from the DB
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // 2. Now pass the loaded User entity to the service
+        return ResponseEntity.ok(applicationService.submitApplication(user, request));
+    }
+    @GetMapping
+    public ResponseEntity<List<ApplicationResponse>> getMyApplications(
+            @Parameter(hidden = true) @AuthenticationPrincipal UserDetails userDetails) {
+
+        // 1. Manually look up the User entity from the DB (just like your POST method)
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // 2. Call the method you already wrote in the service!
+        return ResponseEntity.ok(applicationService.getMyApplications(user));
+    }
+}
+========== src/main/java/com/jansetu/backend/application/service/ApplicationService.java ==========
+package com.jansetu.backend.application.service;
+
+import com.jansetu.backend.application.dto.ApplicationRequest;
+import com.jansetu.backend.application.dto.ApplicationResponse;
+import com.jansetu.backend.application.entity.Application;
+import com.jansetu.backend.application.enums.ApplicationStatus;
+import com.jansetu.backend.application.exception.DuplicateApplicationException;
+import com.jansetu.backend.application.exception.IneligibleException;
+import com.jansetu.backend.application.repository.ApplicationRepository;
+import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.profile.service.CitizenProfileService;
+import com.jansetu.backend.scheme.entity.Scheme;
+import com.jansetu.backend.scheme.evaluator.EligibilityEvaluator;
+import com.jansetu.backend.scheme.exception.SchemeNotFoundException;
+import com.jansetu.backend.scheme.repository.SchemeRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+public class ApplicationService {
+
+    private final ApplicationRepository applicationRepository;
+    private final CitizenProfileService profileService;
+    private final SchemeRepository schemeRepository;
+    private final EligibilityEvaluator evaluator;
+
+    public ApplicationService(ApplicationRepository applicationRepository,
+                              CitizenProfileService profileService,
+                              SchemeRepository schemeRepository,
+                              EligibilityEvaluator evaluator) {
+        this.applicationRepository = applicationRepository;
+        this.profileService = profileService;
+        this.schemeRepository = schemeRepository;
+        this.evaluator = evaluator;
+    }
+
+    @Transactional
+    public ApplicationResponse submitApplication(User user, ApplicationRequest request) {
+        // 1. Fetch Profile and Scheme
+        CitizenProfile profile = profileService.getProfileEntity(user);
+        Scheme scheme = schemeRepository.findById(request.getSchemeId())
+                .orElseThrow(() -> new SchemeNotFoundException("Scheme not found"));
+
+        // 2. Validate Eligibility
+        if (!evaluator.isEligible(profile, scheme.getEligibilityCriteria())) {
+            throw new IneligibleException("User is not eligible");
+        }
+
+        // 3. Validate Duplicates (Exclude Rejected/Withdrawn)
+        if (applicationRepository.existsByCitizenProfileAndSchemeAndStatusNot(
+                profile, scheme, ApplicationStatus.REJECTED)) { // Simplification: adjust logic as needed
+            throw new DuplicateApplicationException(
+                    "An active application already exists for this scheme"
+            );        }
+
+        // 4. Create and Save
+        Application application = Application.builder()
+                .citizenProfile(profile)
+                .scheme(scheme)
+                .status(ApplicationStatus.SUBMITTED)
+                .build();
+
+        Application savedApp = applicationRepository.save(application);
+
+        return mapToResponse(savedApp);
+    }
+    public List<ApplicationResponse> getMyApplications(User user) {
+        CitizenProfile profile = profileService.getProfileEntity(user);
+
+        return applicationRepository.findByCitizenProfile(profile).stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    private ApplicationResponse mapToResponse(Application app) {
+        return ApplicationResponse.builder()
+                .applicationId(app.getId())
+                .schemeName(app.getScheme().getName())
+                .schemeId(app.getScheme().getId())
+                .status(app.getStatus())
+                .remarks(app.getRemarks())
+                .submittedAt(app.getSubmittedAt())
+                .updatedAt(app.getUpdatedAt())
+                .build();
+    }
+}
+========== src/main/java/com/jansetu/backend/application/exception/IneligibleException.java ==========
+package com.jansetu.backend.application.exception;
+
+import com.jansetu.backend.common.exception.BusinessException;
+
+public class IneligibleException extends BusinessException {
+
+    public IneligibleException(String message) {
+        super(message);
+    }
+
+}
+========== src/main/java/com/jansetu/backend/application/exception/DuplicateApplicationException.java ==========
+package com.jansetu.backend.application.exception;
+
+import com.jansetu.backend.common.exception.BusinessException;
+
+public class DuplicateApplicationException extends BusinessException {
+
+    public DuplicateApplicationException(String message) {
+        super(message);
+    }
+
+}
+========== src/main/java/com/jansetu/backend/BackendApplication.java ==========
+package com.jansetu.backend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BackendApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(BackendApplication.class, args);
+	}
+
+}
+
+========== pom.xml ==========
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.3.5</version>
+		<relativePath/>
+	</parent>
+	<groupId>com.jansetu</groupId>
+	<artifactId>backend</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+
+	<properties>
+		<java.version>21</java.version>
+		<spring-ai.version>1.0.0-M1</spring-ai.version>
+	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.ai</groupId>
+				<artifactId>spring-ai-bom</artifactId>
+				<version>${spring-ai.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<dependencies>
+		<!-- Core Starters -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.5.0</version>
+		</dependency>
+
+		<!-- JWT -->
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.12.5</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.12.5</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>0.12.5</version>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Test Dependencies -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Database & Utilities -->
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-XX:+EnableDynamicAgentLoading</argLine>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	<repositories>
+		<repository>
+			<id>spring-milestones</id>
+			<name>Spring Milestones</name>
+			<url>https://repo.spring.io/milestone</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+</project>
