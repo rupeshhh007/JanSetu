@@ -105,7 +105,7 @@ export function RecommendationCard({
 
       <CardContent className="flex flex-1 flex-col space-y-4">
         <h4 className="font-medium">
-          Why you're eligible
+          Why you <area shape="circle" coords="" href="" alt="" /> eligible
         </h4>
 
         <ul className="flex-1 space-y-2">
