@@ -12,4 +12,5 @@ export const API_ENDPOINTS = {
   GET_APPLICATIONS: "/api/v1/applications",
   APPLY_TO_SCHEME: "/api/v1/applications",
   AI_EXPLAIN: "/api/v1/ai/explain",
+  AI_CHAT: "/api/v1/ai/chat",  
 } as const;

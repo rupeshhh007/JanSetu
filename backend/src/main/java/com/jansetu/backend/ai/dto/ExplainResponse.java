@@ -1,4 +1,5 @@
 package com.jansetu.backend.ai.dto;
 
-public class ExplainResponse {
-}
+public record ExplainResponse(
+        String explanation
+) {}

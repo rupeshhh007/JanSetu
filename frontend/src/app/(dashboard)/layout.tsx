@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { AICopilot } from "@/features/ai/components/AICopilot";
 
 export default function DashboardLayout({
   children,
@@ -18,6 +19,7 @@ export default function DashboardLayout({
       </main>
 
       <Footer />
+      <AICopilot />
     </>
   );
 }
