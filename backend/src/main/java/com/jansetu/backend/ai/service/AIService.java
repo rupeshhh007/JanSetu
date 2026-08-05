@@ -91,12 +91,34 @@ public class AIService {
 
     public String chat(ChatRequest request) {
 
-        IntentType intent =
-                intentRouter.detectIntent(request.message());
+        String question = request.message().trim();
+
+        // Handle greetings without calling the LLM
+        if (isGreeting(question)) {
+            return """
+👋 Hello! I'm JanSetu AI.
+
+I can help you with:
+
+• Finding eligible government schemes
+
+• Comparing schemes
+
+• Explaining eligibility
+
+• Checking your application status
+
+• Required documents
+
+How can I help you today?
+""";
+        }
+
+        IntentType intent = intentRouter.detectIntent(question);
 
         System.out.println("====================================");
         System.out.println("Detected Intent : " + intent);
-        System.out.println("Question        : " + request.message());
+        System.out.println("Question        : " + question);
         System.out.println("====================================");
 
         return switch (intent) {
@@ -108,7 +130,7 @@ public class AIService {
                     contextBuilder.buildContext().applications();
 
             default ->
-                    askLLM(request.message());
+                    askLLM(question);
         };
     }
 
@@ -168,5 +190,19 @@ public class AIService {
                 .user(prompt)
                 .call()
                 .content();
+    }
+
+    private boolean isGreeting(String message) {
+
+        String q = message.trim().toLowerCase();
+
+        return q.equals("hi")
+                || q.equals("hello")
+                || q.equals("hey")
+                || q.equals("hii")
+                || q.equals("heyy")
+                || q.equals("good morning")
+                || q.equals("good afternoon")
+                || q.equals("good evening");
     }
 }
