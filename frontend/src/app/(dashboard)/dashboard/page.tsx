@@ -14,88 +14,79 @@ import { useApplications } from "@/features/applications/hooks/useApplications";
 import { useRecommendations } from "@/features/recommendations/hooks/useRecommendations";
 import { useProfile } from "@/features/citizen/hooks/useProfile";
 
-import { formatRelativeTime } from "@/lib/utils";
-
 export default function DashboardPage() {
   const { data: profile } = useProfile();
   const { data: schemes = [] } = useSchemes();
   const { data: recommendations = [] } = useRecommendations();
   const { data: applications = [] } = useApplications();
 
-  // Pure presentational derivation from data already returned by useApplications().
-  // Not a new API call, not new business logic — just counting an array we already have.
   const pendingApplications = applications.filter(
     (application) =>
       application.status === "SUBMITTED" || application.status === "UNDER_REVIEW"
   ).length;
 
   return (
-    <div className="space-y-12">
-      {/* Hero greeting */}
-      <DashboardHero firstName={profile?.firstName} />
-
-      {/* Stat cards */}
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardStatCard
-          title="Available Schemes"
-          value={schemes.length}
-          icon={FileText}
-          accent="primary"
-          caption="Open to explore"
-        />
-
-        <DashboardStatCard
-          title="Recommendations"
-          value={recommendations.length}
-          icon={Sparkles}
-          accent="success"
-          caption={
-            recommendations.length > 0
-              ? "Matched to your profile"
-              : "Complete your profile for matches"
-          }
-          captionTone={recommendations.length > 0 ? "positive" : "neutral"}
-        />
-
-        <DashboardStatCard
-          title="Applications"
-          value={applications.length}
-          icon={ClipboardList}
-          accent="neutral"
-          caption={
-            pendingApplications > 0
-              ? `${pendingApplications} pending review`
-              : "All caught up"
-          }
-          captionTone={pendingApplications > 0 ? "neutral" : "positive"}
-        />
-
-        <DashboardStatCard
-          title="Profile Status"
-          value={profile ? "Completed" : "Pending"}
-          icon={UserCircle2}
-          accent={profile ? "success" : "neutral"}
-          caption={
-            profile ? `Updated ${formatRelativeTime(profile.lastUpdated)}` : "Not started yet"
-          }
-          captionTone={profile ? "positive" : "neutral"}
-        />
+    <div className="relative min-h-screen pb-24">
+      {/* Premium Ambient Background (macOS Sonoma / Apple Intelligence style) */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none bg-[#F5F5F7]">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-[120px]" />
+        <div className="absolute bottom-[20%] right-[-10%] w-[40%] h-[50%] rounded-full bg-purple-500/10 blur-[120px]" />
+        <div className="absolute top-[40%] left-[20%] w-[30%] h-[30%] rounded-full bg-emerald-500/5 blur-[100px]" />
       </div>
 
-      {/* Quick actions */}
-      <QuickActions />
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10 pt-10">
+        <DashboardHero firstName={profile?.firstName} />
 
-      {/* Recent activity + side rail */}
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <RecentActivity applications={applications} />
+        {/* 4-Column Grid for Desktop (Widgets) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <DashboardStatCard
+            title="Available Schemes"
+            value={schemes.length}
+            icon={FileText}
+            accent="primary"
+            caption="Open to explore"
+          />
+          <DashboardStatCard
+            title="Recommendations"
+            value={recommendations.length}
+            icon={Sparkles}
+            accent="success"
+            caption={recommendations.length > 0 ? "Matched to you" : "Complete profile"}
+            captionTone={recommendations.length > 0 ? "positive" : "neutral"}
+          />
+          <DashboardStatCard
+            title="Applications"
+            value={applications.length}
+            icon={ClipboardList}
+            accent="neutral"
+            caption={pendingApplications > 0 ? `${pendingApplications} pending` : "Caught up"}
+            captionTone={pendingApplications > 0 ? "neutral" : "positive"}
+          />
+          <DashboardStatCard
+            title="Profile"
+            value={profile ? "Done" : "Pending"}
+            icon={UserCircle2}
+            accent={profile ? "success" : "neutral"}
+            caption={profile ? "Completed" : "Not started"}
+            captionTone={profile ? "positive" : "neutral"}
+          />
         </div>
 
-        <div className="space-y-6">
-          <ProfileCompletionCard
-  profile={profile ?? undefined}
-/>
-          <TopRecommendationPreview recommendations={recommendations} />
+        {/* 2/3 and 1/3 Split Layout for Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column (Wider) */}
+          <div className="lg:col-span-2 space-y-8">
+            <RecentActivity applications={applications} />
+            <div className="pt-2">
+              <TopRecommendationPreview recommendations={recommendations} />
+            </div>
+          </div>
+
+          {/* Right Column (Narrower) */}
+          <div className="space-y-8">
+            <QuickActions />
+            <ProfileCompletionCard profile={profile ?? undefined} />
+          </div>
         </div>
       </div>
     </div>
