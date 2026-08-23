@@ -1,66 +1,66 @@
 @import "tailwindcss";
 
 :root {
-  /* Base surfaces */
-  --color-background: #f8fafc;
-  --color-foreground: #0f172a;
-  --color-surface: #ffffff;
-  --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #0f172a;
+  /* Base surfaces (Apple-style) */
+  --color-background: #F5F5F7;
+  --color-foreground: #1D1D1F;
+  --color-surface: #FFFFFF;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #1D1D1F;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #1D1D1F;
 
   /* Text */
-  --color-text-primary: #0f172a;
-  --color-text-muted: #64748b;
-  --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
+  --color-text-primary: #1D1D1F;
+  --color-text-muted: #86868B;
+  --color-muted: #F2F2F7;
+  --color-muted-foreground: #86868B;
 
-  /* Brand / primary */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-foreground: #ffffff;
+  /* Brand / primary (Apple Blue) */
+  --color-primary: #0071E3;
+  --color-primary-hover: #0077ED;
+  --color-primary-foreground: #FFFFFF;
 
   /* Secondary / accent (neutral) */
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
-  --color-accent: #f1f5f9;
-  --color-accent-foreground: #0f172a;
+  --color-secondary: #E5E5EA;
+  --color-secondary-foreground: #1D1D1F;
+  --color-accent: #E5E5EA;
+  --color-accent-foreground: #1D1D1F;
 
   /* Status */
-  --color-success: #16a34a;
-  --color-success-foreground: #ffffff;
-  --color-warning: #d97706;
-  --color-warning-foreground: #ffffff;
-  --color-destructive: #dc2626;
-  --color-destructive-foreground: #ffffff;
-  --color-info: #2563eb;
-  --color-info-foreground: #ffffff;
+  --color-success: #34C759;
+  --color-success-foreground: #FFFFFF;
+  --color-warning: #FF9500;
+  --color-warning-foreground: #FFFFFF;
+  --color-destructive: #FF3B30;
+  --color-destructive-foreground: #FFFFFF;
+  --color-info: #0071E3;
+  --color-info-foreground: #FFFFFF;
 
   /* Structure */
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #2563eb;
+  --color-border: #E5E5EA;
+  --color-input: #E5E5EA;
+  --color-ring: #0071E3;
 
-  /* Radius scale */
-  --radius: 0.625rem;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* Radius scale (Increased for softer Apple look) */
+  --radius: 1rem;
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 10px);
+  --radius-2xl: calc(var(--radius) + 8px);
 
   /* Touch target */
   --spacing-touch: 2.75rem;
 
   /* Type */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  /* Elevation (kept subtle on purpose) */
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-  --shadow-card-hover: 0 8px 24px -8px rgb(15 23 42 / 0.12);
+  /* Elevation (Soft Apple style) */
+  --shadow-card: 0 4px 24px -6px rgba(0, 0, 0, 0.04), 0 2px 8px -2px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 12px 32px -8px rgba(0, 0, 0, 0.08), 0 4px 16px -4px rgba(0, 0, 0, 0.04);
 }
 
 @theme inline {
@@ -128,11 +128,14 @@ body {
   line-height: 1.5;
   font-family: var(--font-sans);
   letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4 {
   font-family: var(--font-heading);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.022em;
+  font-weight: 600;
 }
 
 :focus-visible {
@@ -140,20 +143,19 @@ h1, h2, h3, h4 {
   outline-offset: 2px;
 }
 
-/* Subtle, single-purpose entrance used only for dashboard widgets on first paint */
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(12px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.35s ease-out both;
+  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

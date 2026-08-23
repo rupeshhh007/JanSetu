@@ -91,9 +91,9 @@ export function AICopilot() {
         aria-controls="ai-copilot-panel"
         className={`
           fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center 
-          rounded-2xl bg-black text-white hover:bg-zinc-800 shadow-2xl ring-1 ring-zinc-800 
-          transition-all duration-300 ease-out hover:scale-105 
-          dark:bg-zinc-50 dark:text-zinc-900 dark:ring-white/10
+          rounded-2xl bg-white text-primary shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-black/5 
+          transition-all duration-300 ease-out hover:scale-105 hover:bg-gray-50
+          dark:bg-zinc-800 dark:text-zinc-50 dark:border-white/10
           ${isOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"}
         `}
       >
@@ -119,23 +119,23 @@ export function AICopilot() {
         aria-label="JanSetu AI Assistant"
         className={`
           fixed bottom-0 right-0 top-0 z-50 flex h-[100dvh] w-full flex-col 
-          bg-zinc-950 shadow-2xl 
+          bg-white/70 backdrop-blur-3xl shadow-[-10px_0_40px_rgba(0,0,0,0.05)] 
           transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
-          sm:w-[460px] sm:rounded-l-2xl sm:border-l sm:border-zinc-800
+          sm:w-[460px] sm:rounded-l-3xl sm:border-l sm:border-white/40
           ${isOpen ? "translate-x-0" : "translate-x-full"}
         `}
       >
         {/* Header */}
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-6 py-4 backdrop-blur-xl">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white/40 px-6 py-4 backdrop-blur-xl">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900">
-              <Sparkles size={18} className="text-zinc-100" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm border border-black/5">
+              <Sparkles size={18} className="text-primary" />
             </div>
             <div className="flex flex-col">
-              <h2 className="text-base font-semibold text-zinc-100 tracking-tight">
+              <h2 className="text-base font-semibold text-foreground tracking-tight">
                 JanSetu AI
               </h2>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-muted-foreground">
                 Personal Welfare Assistant
               </p>
             </div>
@@ -143,7 +143,7 @@ export function AICopilot() {
           <button
             onClick={() => setIsOpen(false)}
             aria-label="Close panel"
-            className="rounded-full p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground"
           >
             <X size={20} />
           </button>
@@ -179,7 +179,7 @@ export function AICopilot() {
         </div>
 
         {/* Footer Input Area */}
-        <div className="flex-shrink-0 border-t border-zinc-800 bg-zinc-950 p-4">
+        <div className="flex-shrink-0 border-t border-black/5 bg-white/40 backdrop-blur-xl p-4">
           <ChatInput onSend={handleSendMessage} disabled={mutation.isPending} />
         </div>
       </div>
