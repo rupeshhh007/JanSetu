@@ -11,10 +11,10 @@ export default function MessageBubble({ children, role }: Props) {
   return (
     <div
       className={cn(
-        "rounded-2xl px-5 py-3.5 shadow-sm leading-relaxed text-[15px]",
+        "leading-relaxed",
         isUser
-          ? "ml-auto max-w-[85%] bg-primary text-white border-0 rounded-br-sm"
-          : "mr-auto max-w-[90%] bg-muted text-foreground border border-black/5 rounded-bl-sm"
+          ? "ml-auto max-w-[85%] bg-secondary/80 text-foreground rounded-[1.5rem] px-6 py-3.5 font-medium text-[15px]"
+          : "mr-auto w-full bg-transparent text-foreground text-[16px]"
       )}
     >
       {children}

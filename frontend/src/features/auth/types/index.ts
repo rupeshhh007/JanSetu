@@ -12,9 +12,12 @@ export interface LoginResponse {
   accessToken: string;
   tokenType: string;
   expiresIn: number;
+  role: string;
 }
 
 export interface RegisterResponse {
   userId: string;
+  email: string;
   message: string;
+  role: string;
 }

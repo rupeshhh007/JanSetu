@@ -11,13 +11,13 @@ import { getErrorMessage } from "@/lib/api/errorHandler";
 
 export function useLogin() {
   const router = useRouter();
-  const setAccessToken = useAuthStore((state) => state.setAccessToken);
+  const setAuthData = useAuthStore((state) => state.setAuthData);
 
   return useMutation({
     mutationFn: (payload: LoginRequest) => login(payload),
 
     onSuccess: (data) => {
-      setAccessToken(data.accessToken);
+      setAuthData(data.accessToken, data.role);
 
       toast.success("Login successful!");
 

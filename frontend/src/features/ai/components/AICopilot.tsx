@@ -90,14 +90,13 @@ export function AICopilot() {
         aria-expanded={isOpen}
         aria-controls="ai-copilot-panel"
         className={`
-          fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center 
-          rounded-2xl bg-white text-primary shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-black/5 
-          transition-all duration-300 ease-out hover:scale-105 hover:bg-gray-50
-          dark:bg-zinc-800 dark:text-zinc-50 dark:border-white/10
+          fixed bottom-8 right-8 z-40 flex h-16 w-16 items-center justify-center 
+          rounded-full bg-primary text-primary-foreground shadow-card border border-white/10 
+          transition-all duration-300 ease-out hover:scale-105 hover:bg-primary-hover
           ${isOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"}
         `}
       >
-        <Bot size={24} className="animate-pulse duration-3000" />
+        <Sparkles size={28} className="animate-pulse" />
       </button>
 
       {/* Backdrop Overlay */}
@@ -105,12 +104,12 @@ export function AICopilot() {
         aria-hidden="true"
         onClick={() => setIsOpen(false)}
         className={`
-          fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-500
+          fixed inset-0 z-50 bg-foreground/10 backdrop-blur-md transition-opacity duration-500
           ${isOpen ? "opacity-100" : "pointer-events-none opacity-0"}
         `}
       />
 
-      {/* Slide-over Panel */}
+      {/* Gemini-Style Centered Chat Modal */}
       <div
         id="ai-copilot-panel"
         ref={panelRef}
@@ -118,69 +117,62 @@ export function AICopilot() {
         aria-modal="true"
         aria-label="JanSetu AI Assistant"
         className={`
-          fixed bottom-0 right-0 top-0 z-50 flex h-[100dvh] w-full flex-col 
-          bg-white/70 backdrop-blur-3xl shadow-[-10px_0_40px_rgba(0,0,0,0.05)] 
-          transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]
-          sm:w-[460px] sm:rounded-l-3xl sm:border-l sm:border-white/40
-          ${isOpen ? "translate-x-0" : "translate-x-full"}
+          fixed inset-0 sm:inset-6 md:inset-x-[10%] lg:inset-x-[20%] xl:inset-x-[25%] md:inset-y-10 z-50 
+          flex flex-col bg-background sm:rounded-[2rem] shadow-2xl overflow-hidden
+          transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] border border-black/5
+          ${isOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-12 opacity-0 scale-95 pointer-events-none"}
         `}
       >
         {/* Header */}
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white/40 px-6 py-4 backdrop-blur-xl">
+        <header className="flex-shrink-0 flex items-center justify-between px-8 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm border border-black/5">
-              <Sparkles size={18} className="text-primary" />
-            </div>
-            <div className="flex flex-col">
-              <h2 className="text-base font-semibold text-foreground tracking-tight">
-                JanSetu AI
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Personal Welfare Assistant
-              </p>
-            </div>
+            <Sparkles size={22} className="text-primary" />
+            <h2 className="text-[18px] font-semibold text-foreground tracking-tight font-heading">
+              JanSetu Copilot
+            </h2>
           </div>
           <button
             onClick={() => setIsOpen(false)}
             aria-label="Close panel"
             className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground"
           >
-            <X size={20} />
+            <X size={24} />
           </button>
         </header>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-6 scroll-smooth">
-          {messages.length === 0 ? (
-            <div className="flex h-full flex-col justify-end pb-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <EmptyState onPromptClick={handleSendMessage} />
-            </div>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className="animate-in fade-in slide-in-from-bottom-2 duration-300"
-                >
-                  <ChatMessageComponent message={msg} />
-                </div>
-              ))}
-
-              {mutation.isPending && (
-                <div className="animate-in fade-in duration-300">
-                  <TypingIndicator />
-                </div>
-              )}
-
-              {/* Invisible element to auto-scroll to */}
-              <div ref={messagesEndRef} className="h-px w-full" />
-            </div>
-          )}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 scroll-smooth">
+          <div className="max-w-3xl mx-auto h-full flex flex-col">
+            {messages.length === 0 ? (
+              <div className="flex flex-1 flex-col justify-center pb-12 animate-in fade-in duration-700">
+                <EmptyState onPromptClick={handleSendMessage} />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-8 pb-4">
+                {messages.map((msg) => (
+                  <div key={msg.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <ChatMessageComponent message={msg} />
+                  </div>
+                ))}
+                {mutation.isPending && (
+                  <div className="animate-in fade-in duration-300">
+                    <TypingIndicator />
+                  </div>
+                )}
+                <div ref={messagesEndRef} className="h-4 w-full" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer Input Area */}
-        <div className="flex-shrink-0 border-t border-black/5 bg-white/40 backdrop-blur-xl p-4">
-          <ChatInput onSend={handleSendMessage} disabled={mutation.isPending} />
+        <div className="flex-shrink-0 px-4 sm:px-8 pb-6 pt-2 bg-gradient-to-t from-background via-background to-transparent">
+          <div className="max-w-3xl mx-auto">
+            <ChatInput onSend={handleSendMessage} disabled={mutation.isPending} />
+            <p className="text-center text-[12px] text-muted-foreground mt-3 font-medium">
+              Gemini may display inaccurate info, so double-check its responses.
+            </p>
+          </div>
         </div>
       </div>
     </>

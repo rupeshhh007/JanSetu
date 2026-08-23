@@ -53,12 +53,17 @@ export function Navbar() {
   const router = useRouter();
 
   const logout = useAuthStore((state) => state.logout);
+  const role = useAuthStore((state) => state.role);
 
   function handleLogout() {
     logout();
     setIsMenuOpen(false);
     router.replace("/login");
   }
+
+  const linksToShow = role === "ADMIN" 
+    ? [{ label: "Admin Panel", href: "/admin", icon: LayoutDashboard }, ...NAV_LINKS]
+    : NAV_LINKS;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-black/5 bg-white/70 backdrop-blur-2xl">
@@ -79,7 +84,7 @@ export function Navbar() {
           aria-label="Primary navigation"
           className="hidden items-center gap-1 md:flex"
         >
-          {NAV_LINKS.map((link) => (
+          {linksToShow.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -136,7 +141,7 @@ export function Navbar() {
         )}
       >
         <div className="flex flex-col gap-1 px-4 py-3">
-          {NAV_LINKS.map((link) => (
+          {linksToShow.map((link) => (
             <Link
               key={link.href}
               href={link.href}

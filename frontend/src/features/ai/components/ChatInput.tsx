@@ -29,22 +29,22 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-full border border-black/5 bg-white shadow-sm p-2">
+    <div className="flex items-center gap-2 rounded-full bg-secondary/70 p-1.5 pr-2 focus-within:bg-secondary focus-within:ring-1 focus-within:ring-black/5 transition-all">
       <Input
-        placeholder="Ask JanSetu AI..."
+        placeholder="Ask Gemini..."
         value={message}
         disabled={disabled}
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="h-10 border-none bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground focus-visible:ring-0 px-4"
+        className="h-12 border-none bg-transparent text-[16px] text-foreground placeholder:text-muted-foreground focus-visible:ring-0 px-4"
       />
 
       <Button
         onClick={send}
         disabled={disabled || !message.trim()}
-        className="h-10 w-10 shrink-0 rounded-full bg-primary p-0 text-white hover:bg-primary-hover shadow-sm"
+        className="h-10 w-10 shrink-0 rounded-full bg-primary p-0 text-white hover:bg-primary-hover shadow-sm disabled:opacity-50 disabled:bg-black/10 disabled:text-black/30 transition-all"
       >
-        <SendHorizontal className="h-4 w-4" />
+        <SendHorizontal className="h-5 w-5" />
       </Button>
     </div>
   );

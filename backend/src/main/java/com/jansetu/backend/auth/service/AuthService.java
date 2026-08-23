@@ -46,13 +46,20 @@ public class AuthService {
         User user = new User();
         user.setEmail(request.email());
         user.setPasswordHash(hashedPassword);
-        user.setRole(Role.CITIZEN);
+        
+        // Demo/Resume Project Hack: Automatically make emails containing 'admin' an ADMIN
+        if (request.email().toLowerCase().contains("admin")) {
+            user.setRole(Role.ADMIN);
+        } else {
+            user.setRole(Role.CITIZEN);
+        }
+        
         user.setEnabled(true);
 
         User savedUser = userRepository.save(user);
 
         log.info("Successfully registered user: {}", savedUser.getEmail());
-        return new RegisterResponse(savedUser.getId(), "User registered successfully");
+        return new RegisterResponse(savedUser.getId(), savedUser.getEmail(), "User registered successfully", savedUser.getRole().name());
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -76,6 +83,6 @@ public class AuthService {
 
         log.info("User {} successfully logged in", user.getEmail());
         // 4. Return the VIP Badge
-        return new LoginResponse(jwtToken, "Bearer", jwtExpiration);
+        return new LoginResponse(jwtToken, "Bearer", jwtExpiration, user.getRole().name());
     }
 }

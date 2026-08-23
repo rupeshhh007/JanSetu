@@ -1,9 +1,9 @@
-import { Bot } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 export default function AIAvatar() {
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 bg-black text-white shadow-md">
-      <Bot size={18} />
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+      <Sparkles size={18} />
     </div>
   );
 }

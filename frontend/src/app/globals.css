@@ -1,48 +1,48 @@
 @import "tailwindcss";
 
 :root {
-  /* Base surfaces (Apple-style) */
-  --color-background: #F5F5F7;
-  --color-foreground: #1D1D1F;
+  /* Base surfaces (Premium Beige/Brown) */
+  --color-background: #FDFBF7;
+  --color-foreground: #2D241E;
   --color-surface: #FFFFFF;
   --color-card: #FFFFFF;
-  --color-card-foreground: #1D1D1F;
+  --color-card-foreground: #2D241E;
   --color-popover: #FFFFFF;
-  --color-popover-foreground: #1D1D1F;
+  --color-popover-foreground: #2D241E;
 
   /* Text */
-  --color-text-primary: #1D1D1F;
-  --color-text-muted: #86868B;
-  --color-muted: #F2F2F7;
-  --color-muted-foreground: #86868B;
+  --color-text-primary: #2D241E;
+  --color-text-muted: #8C7C70;
+  --color-muted: #F5F2EB;
+  --color-muted-foreground: #8C7C70;
 
-  /* Brand / primary (Apple Blue) */
-  --color-primary: #0071E3;
-  --color-primary-hover: #0077ED;
-  --color-primary-foreground: #FFFFFF;
+  /* Brand / primary (Rich Brown) */
+  --color-primary: #4A3B32;
+  --color-primary-hover: #3A2E27;
+  --color-primary-foreground: #FDFBF7;
 
   /* Secondary / accent (neutral) */
-  --color-secondary: #E5E5EA;
-  --color-secondary-foreground: #1D1D1F;
-  --color-accent: #E5E5EA;
-  --color-accent-foreground: #1D1D1F;
+  --color-secondary: #EAE6DF;
+  --color-secondary-foreground: #2D241E;
+  --color-accent: #EAE6DF;
+  --color-accent-foreground: #2D241E;
 
   /* Status */
-  --color-success: #34C759;
+  --color-success: #556B2F;
   --color-success-foreground: #FFFFFF;
-  --color-warning: #FF9500;
+  --color-warning: #B8860B;
   --color-warning-foreground: #FFFFFF;
-  --color-destructive: #FF3B30;
+  --color-destructive: #8B0000;
   --color-destructive-foreground: #FFFFFF;
-  --color-info: #0071E3;
+  --color-info: #4A3B32;
   --color-info-foreground: #FFFFFF;
 
   /* Structure */
-  --color-border: #E5E5EA;
-  --color-input: #E5E5EA;
-  --color-ring: #0071E3;
+  --color-border: #EAE6DF;
+  --color-input: #EAE6DF;
+  --color-ring: #4A3B32;
 
-  /* Radius scale (Increased for softer Apple look) */
+  /* Radius scale (Softer, premium look) */
   --radius: 1rem;
   --radius-sm: calc(var(--radius) - 8px);
   --radius-md: calc(var(--radius) - 4px);
@@ -54,13 +54,13 @@
   --spacing-touch: 2.75rem;
 
   /* Type */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+  --font-heading: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
 
-  /* Elevation (Soft Apple style) */
-  --shadow-card: 0 4px 24px -6px rgba(0, 0, 0, 0.04), 0 2px 8px -2px rgba(0, 0, 0, 0.02);
-  --shadow-card-hover: 0 12px 32px -8px rgba(0, 0, 0, 0.08), 0 4px 16px -4px rgba(0, 0, 0, 0.04);
+  /* Elevation */
+  --shadow-card: 0 8px 30px rgba(74, 59, 50, 0.05), 0 4px 10px rgba(74, 59, 50, 0.02);
+  --shadow-card-hover: 0 16px 40px rgba(74, 59, 50, 0.08), 0 8px 20px rgba(74, 59, 50, 0.04);
 }
 
 @theme inline {

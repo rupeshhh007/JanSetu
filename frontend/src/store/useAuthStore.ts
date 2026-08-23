@@ -3,9 +3,10 @@ import { persist, createJSONStorage } from "zustand/middleware";
 
 interface AuthState {
   accessToken: string | null;
+  role: string | null;
   isAuthenticated: boolean;
 
-  setAccessToken: (token: string) => void;
+  setAuthData: (token: string, role: string) => void;
   logout: () => void;
 }
 
@@ -13,18 +14,20 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       accessToken: null,
-
+      role: null,
       isAuthenticated: false,
 
-      setAccessToken: (token) =>
+      setAuthData: (token, role) =>
         set({
           accessToken: token,
+          role: role,
           isAuthenticated: true,
         }),
 
       logout: () =>
         set({
           accessToken: null,
+          role: null,
           isAuthenticated: false,
         }),
     }),
