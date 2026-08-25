@@ -9,6 +9,6 @@ AI-powered Government Welfare Recommendation Platform
 - PostgreSQL
 - Next.js
 - Tailwind CSS
-- GroQ API
+- Gemini API
 
 ---
