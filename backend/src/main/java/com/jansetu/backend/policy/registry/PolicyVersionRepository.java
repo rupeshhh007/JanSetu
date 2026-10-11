@@ -15,6 +15,19 @@ public interface PolicyVersionRepository extends JpaRepository<PolicyVersion, UU
 
     Optional<PolicyVersion> findTopBySchemeIdOrderByVersionNumberDesc(UUID schemeId);
 
+    @Query("select policy from PolicyVersion policy where policy.scheme.id = :schemeId "
+            + "and policy.status in (com.jansetu.backend.policy.registry.PolicyVersionStatus.PUBLISHED, "
+            + "com.jansetu.backend.policy.registry.PolicyVersionStatus.SUPERSEDED) "
+            + "and policy.effectiveFrom <= :evaluationDate "
+            + "and (policy.effectiveTo is null or policy.effectiveTo >= :evaluationDate) "
+            + "order by policy.versionNumber desc")
+    List<PolicyVersion> findApplicableAtCandidates(@Param("schemeId") UUID schemeId,
+                                                   @Param("evaluationDate") java.time.LocalDate evaluationDate);
+
+    default Optional<PolicyVersion> findApplicableAt(UUID schemeId, java.time.LocalDate evaluationDate) {
+        return findApplicableAtCandidates(schemeId, evaluationDate).stream().findFirst();
+    }
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select policy from PolicyVersion policy where policy.scheme.id = :schemeId "
             + "and policy.status = com.jansetu.backend.policy.registry.PolicyVersionStatus.PUBLISHED "

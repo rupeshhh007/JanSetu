@@ -8,6 +8,7 @@ import com.jansetu.backend.scheme.exception.SchemePublicationException;
 import com.jansetu.backend.policy.registry.PolicyLifecycleException;
 import com.jansetu.backend.policy.registry.PolicyVersionNotFoundException;
 import com.jansetu.backend.policy.validation.InvalidPolicyException;
+import com.jansetu.backend.assessment.AssessmentNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,7 +47,7 @@ public class GlobalExceptionHandler {
 
     // Handle Not Found exceptions (404)
     @ExceptionHandler({ProfileNotFoundException.class, SchemeNotFoundException.class, ApplicationNotFoundException.class,
-            PolicyVersionNotFoundException.class})
+            PolicyVersionNotFoundException.class, AssessmentNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(BusinessException ex) {
         return buildResponse(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage());
     }

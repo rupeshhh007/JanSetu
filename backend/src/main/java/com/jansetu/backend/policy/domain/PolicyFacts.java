@@ -7,6 +7,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.List;
 
 /** Immutable, typed facts supplied to a policy evaluation. */
 public final class PolicyFacts {
@@ -38,6 +39,55 @@ public final class PolicyFacts {
 
     public Map<FactKey, Object> asMap() {
         return values;
+    }
+
+    /**
+     * Stores facts as canonical strings paired with their closed fact key. This
+     * avoids JSON number coercion and lets a future replay reconstruct the
+     * exact value types used during the original evaluation.
+     */
+    public List<PolicyFactSnapshot> snapshot() {
+        return values.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new PolicyFactSnapshot(entry.getKey(), serialize(entry.getValue())))
+                .toList();
+    }
+
+    public static PolicyFacts fromSnapshot(List<PolicyFactSnapshot> snapshot) {
+        Builder builder = builder();
+        if (snapshot == null) {
+            return builder.build();
+        }
+        for (PolicyFactSnapshot fact : snapshot) {
+            if (fact == null || fact.fact() == null || fact.value() == null) {
+                throw new IllegalArgumentException("A fact snapshot must include a key and value");
+            }
+            builder.put(fact.fact(), deserialize(fact));
+        }
+        return builder.build();
+    }
+
+    private static String serialize(Object value) {
+        return switch (value) {
+            case BigDecimal decimal -> decimal.toPlainString();
+            case LocalDate date -> date.toString();
+            case Boolean bool -> Boolean.toString(bool);
+            case String text -> text;
+            default -> throw new IllegalArgumentException("Unsupported policy fact value: " + value.getClass().getName());
+        };
+    }
+
+    private static Object deserialize(PolicyFactSnapshot fact) {
+        try {
+            return switch (fact.fact().valueType()) {
+                case DECIMAL -> new BigDecimal(fact.value());
+                case DATE -> LocalDate.parse(fact.value());
+                case BOOLEAN -> Boolean.parseBoolean(fact.value());
+                case TEXT -> fact.value();
+            };
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException("Invalid snapshot value for " + fact.fact(), exception);
+        }
     }
 
     public static Builder builder() {
