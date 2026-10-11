@@ -1,59 +1,57 @@
-import { FileText, CalendarClock, History, MessageSquare } from "lucide-react";
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
+import Link from "next/link";
+import { ArrowRight, Clock3 } from "lucide-react";
 import type { ApplicationResponse } from "../types";
 import { ApplicationStatusBadge } from "./ApplicationStatusBadge";
-
-interface Props {
+import { APPLICATION_STATUS_META } from "@/lib/statusMeta";
+export function ApplicationCard({
+  application,
+}: {
   application: ApplicationResponse;
-}
-
-export function ApplicationCard({ application }: Props) {
+}) {
   return (
-    <Card className="group flex h-full flex-col border border-border transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[var(--shadow-card-hover)]">
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform duration-200 group-hover:scale-105">
-            <FileText className="size-5" strokeWidth={2} aria-hidden="true" />
-          </div>
-          <CardTitle className="pt-1 leading-snug">{application.schemeName}</CardTitle>
-        </div>
-
+    <article className="flex h-full flex-col rounded-xl border bg-white p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Record {application.applicationId.slice(0, 8)}
+        </span>
         <ApplicationStatusBadge status={application.status} />
-      </CardHeader>
-
-      <CardContent className="space-y-4 text-sm">
-        <div className="flex items-start gap-2.5">
-          <MessageSquare className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <div>
-            <p className="font-medium text-foreground">Remarks</p>
-            <p className="text-muted-foreground">
-              {application.remarks || "No remarks available."}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2.5">
-          <CalendarClock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <div>
-            <p className="font-medium text-foreground">Submitted</p>
-            <p className="text-muted-foreground">
-              {new Date(application.submittedAt).toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2.5">
-          <History className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <div>
-            <p className="font-medium text-foreground">Last Updated</p>
-            <p className="text-muted-foreground">
-              {new Date(application.updatedAt).toLocaleString()}
-            </p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <h2 className="text-lg">{application.schemeName}</h2>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Started {new Date(application.submittedAt).toLocaleDateString("en-IN")}
+      </p>
+      <div className="my-5 rounded-lg bg-muted/60 p-4">
+        <p className="mb-1 text-xs font-semibold">Latest review note</p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {application.remarks ||
+            "Your record is waiting for a JanSetu administrator to review it."}
+        </p>
+      </div>
+      <details className="mb-5 border-t pt-4">
+        <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+          <Clock3 size={16} />
+          Status history ({application.history?.length ?? 0})
+        </summary>
+        <ol className="ml-2 mt-4 space-y-4 border-l pl-5">
+          {application.history?.map((item) => (
+            <li key={item.id} className="text-xs">
+              <p className="font-medium">
+                {APPLICATION_STATUS_META[item.newStatus].label}
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                {new Date(item.changedAt).toLocaleString("en-IN")}
+              </p>
+              {item.remarks && <p className="mt-1 leading-5">{item.remarks}</p>}
+            </li>
+          ))}
+        </ol>
+      </details>
+      <Link
+        className="text-link mt-auto"
+        href={`/schemes/${application.schemeId}`}
+      >
+        Scheme details & checklist <ArrowRight size={15} />
+      </Link>
+    </article>
   );
 }

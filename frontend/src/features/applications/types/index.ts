@@ -3,7 +3,17 @@ export type ApplicationStatus =
   | "SUBMITTED"
   | "UNDER_REVIEW"
   | "APPROVED"
-  | "REJECTED";
+  | "REJECTED"
+  | "WITHDRAWN";
+
+export interface ApplicationStatusHistory {
+  id: string;
+  previousStatus: ApplicationStatus | null;
+  newStatus: ApplicationStatus;
+  remarks: string | null;
+  changedBy: string;
+  changedAt: string;
+}
 
 export interface ApplicationRequest {
   schemeId: string;
@@ -14,7 +24,8 @@ export interface ApplicationResponse {
   schemeId: string;
   schemeName: string;
   status: ApplicationStatus;
-  remarks: string;
+  remarks: string | null;
   submittedAt: string;
   updatedAt: string;
+  history: ApplicationStatusHistory[];
 }
