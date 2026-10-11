@@ -1,5 +1,3 @@
-import { Landmark } from "lucide-react";
-
 interface DashboardHeroProps {
   firstName?: string;
 }
@@ -24,13 +22,17 @@ export function DashboardHero({ firstName }: DashboardHeroProps) {
   const today = getTodayLabel();
 
   return (
-    <div className="flex flex-col gap-2 pb-2">
-      <p className="text-sm font-semibold tracking-widest uppercase text-muted-foreground/80 ml-1">
-        {today}
+    <div className="border-y-2 border-foreground py-5 sm:flex sm:items-end sm:justify-between">
+      <div>
+        <p className="noticeboard-kicker text-primary">Your citizen desk</p>
+        <h1 className="mt-1 text-4xl leading-none sm:text-6xl">
+          {greeting}
+          {firstName ? `, ${firstName}` : ""}.
+        </h1>
+      </div>
+      <p className="mt-4 max-w-xs border-l-4 border-accent pl-3 font-mono text-xs font-bold uppercase tracking-wide text-text-muted sm:mt-0">
+        {today} · one clear next step at a time
       </p>
-      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight text-foreground">
-        {greeting}{firstName ? `, ${firstName}` : ""}
-      </h1>
     </div>
   );
 }
