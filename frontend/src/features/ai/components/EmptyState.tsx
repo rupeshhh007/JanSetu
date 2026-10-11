@@ -38,29 +38,30 @@ export default function EmptyState({ onPromptClick }: Props) {
     <div className="flex h-full flex-col justify-center">
       <div className="mx-auto w-full max-w-md">
         <div className="flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-zinc-900 border border-zinc-800 shadow-lg">
-            <Bot size={34} className="text-zinc-100" />
+          <div className="flex h-20 w-20 items-center justify-center border-2 border-foreground bg-accent shadow-[4px_4px_0_#151515]">
+            <Bot size={34} className="text-foreground" />
           </div>
         </div>
 
         <div className="mt-8 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-zinc-900 border border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300">
-            <Sparkles size={16} className="text-zinc-400" />
-            Powered by AI
+          <div className="stamp inline-flex items-center gap-2 px-3 py-2 text-foreground">
+            <Sparkles size={16} className="text-primary" />
+            Guided scheme help
           </div>
 
-          <h2 className="mt-5 text-4xl font-bold tracking-tight text-zinc-100">
-            JanSetu AI
+          <h2 className="mt-5 text-4xl font-bold tracking-tight text-foreground">
+            Ask a clearer question.
           </h2>
 
-          <p className="mt-3 leading-7 text-zinc-400">
-            Your intelligent assistant for discovering, comparing and understanding Government Welfare Schemes.
+          <p className="mt-3 leading-7 text-text-muted">
+            I can help you discover, compare and understand scheme information
+            already available in JanSetu.
           </p>
         </div>
 
         <div className="mt-10">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-zinc-500">
-            Popular Questions
+          <h3 className="noticeboard-kicker mb-4 text-text-muted">
+            Start with a task
           </h3>
 
           <div className="space-y-3">
@@ -71,14 +72,14 @@ export default function EmptyState({ onPromptClick }: Props) {
                   key={prompt.text}
                   onClick={() => onPromptClick(prompt.text)}
                   className="
-                    flex w-full items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-left shadow-sm 
-                    transition-all hover:-translate-y-1 hover:border-zinc-600 hover:bg-zinc-800 hover:shadow-xl
+                    flex w-full items-center gap-4 border-2 border-foreground bg-surface p-4 text-left shadow-[3px_3px_0_#151515]
+                    transition-all hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0_#151515]
                   "
                 >
-                  <div className="rounded-xl bg-zinc-800 p-2">
-                    <Icon size={18} className="text-zinc-300" />
+                  <div className="border-2 border-foreground bg-accent p-2">
+                    <Icon size={18} className="text-foreground" />
                   </div>
-                  <span className="text-sm font-medium text-zinc-100">
+                  <span className="text-sm font-bold text-foreground">
                     {prompt.text}
                   </span>
                 </button>

@@ -29,9 +29,10 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-full bg-secondary/70 p-1.5 pr-2 focus-within:bg-secondary focus-within:ring-1 focus-within:ring-black/5 transition-all">
+    <div className="flex items-center gap-2 border-2 border-foreground bg-background p-1.5 pr-2 focus-within:ring-3 focus-within:ring-primary/40 transition-all">
       <Input
-        placeholder="Ask Gemini..."
+        aria-label="Ask JanSetu Guide"
+        placeholder="Ask about a scheme or application"
         value={message}
         disabled={disabled}
         onChange={(e) => setMessage(e.target.value)}
@@ -42,7 +43,8 @@ export function ChatInput({ onSend, disabled = false }: ChatInputProps) {
       <Button
         onClick={send}
         disabled={disabled || !message.trim()}
-        className="h-10 w-10 shrink-0 rounded-full bg-primary p-0 text-white hover:bg-primary-hover shadow-sm disabled:opacity-50 disabled:bg-black/10 disabled:text-black/30 transition-all"
+        aria-label="Send message"
+        className="h-10 w-10 shrink-0 rounded-none border-2 border-foreground bg-primary p-0 text-white hover:bg-primary-hover shadow-[2px_2px_0_#151515] disabled:opacity-50 disabled:bg-black/10 disabled:text-black/30 transition-all"
       >
         <SendHorizontal className="h-5 w-5" />
       </Button>

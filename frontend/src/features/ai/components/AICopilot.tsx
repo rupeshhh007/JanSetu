@@ -1,180 +1,270 @@
-// src/features/ai/components/AICopilot.tsx
 "use client";
-
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Bot, X, Sparkles } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  X,
+  MessageCircle,
+  RotateCcw,
+  SendHorizontal,
+  ArrowUpRight,
+  BookOpen,
+} from "lucide-react";
 import { useAIChat } from "../hooks/useAIChat";
-import { ChatMessage as ChatMessageComponent } from "./ChatMessage";
-import { ChatInput } from "./ChatInput";
-import { TypingIndicator } from "./TypingIndicator";
+import { ChatMessage as Message } from "./ChatMessage";
 import type { ChatMessage } from "../types";
-import EmptyState from "./EmptyState";
-
+const PROMPTS = [
+  "Which schemes should I apply for?",
+  "Compare PM-KISAN and Ayushman Bharat PM-JAY",
+  "What is my application status?",
+  "What documents do I need for PM-KISAN?",
+];
 export function AICopilot() {
-  const [isOpen, setIsOpen] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const end = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const context = useRef<string[]>([]);
+  const sending = useRef(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-
-  const panelRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const mutation = useAIChat();
-
-  // Auto-scroll to newest message
-  const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, mutation.isPending, scrollToBottom]);
-
-  // Accessibility: Escape key to close
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        setIsOpen(false);
+  const [draft, setDraft] = useState("");
+  const [failed, setFailed] = useState<string | null>(null);
+  const { mutateAsync, isPending } = useAIChat();
+  const send = useCallback(
+    async (text: string, contextualIds?: string[]) => {
+      const content = text.trim();
+      if (!content || content.length > 1000 || sending.current) return;
+      sending.current = true;
+      setFailed(null);
+      setDraft("");
+      setMessages((previous) => [
+        ...previous,
+        { id: crypto.randomUUID(), role: "user", content },
+      ]);
+      try {
+        const response = await mutateAsync({
+          message: content,
+          contextSchemeIds: contextualIds ?? context.current,
+        });
+        context.current = [
+          ...new Set(
+            response.cards
+              .map((card) => card.schemeId)
+              .filter((id): id is string => !!id),
+          ),
+        ].slice(0, 5);
+        setMessages((previous) => [
+          ...previous,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: response.response,
+            ...response,
+          },
+        ]);
+      } catch {
+        setFailed(content);
+      } finally {
+        sending.current = false;
+        requestAnimationFrame(() => input.current?.focus());
       }
+    },
+    [mutateAsync],
+  );
+  useEffect(() => {
+    const open = (event: Event) => {
+      if (!dialog.current?.open) dialog.current?.showModal();
+      const detail = (
+        event as CustomEvent<{ message?: string; schemeId?: string }>
+      ).detail;
+      if (detail?.message)
+        void send(
+          detail.message,
+          detail.schemeId ? [detail.schemeId] : undefined,
+        );
+      else input.current?.focus();
     };
-
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden"; // Prevent background scrolling on mobile
-    }
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen]);
-
-  const handleSendMessage = async (content: string) => {
-    if (!content.trim() || mutation.isPending) return;
-
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: content.trim(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-
-    try {
-      const response = await mutation.mutateAsync({ message: content.trim() });
-
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: response.response,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      const errorMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content:
-          "I encountered an error connecting to the JanSetu servers. Please try again.",
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    }
-  };
-
+    window.addEventListener("jansetu:guide", open);
+    return () => window.removeEventListener("jansetu:guide", open);
+  }, [send]);
+  useEffect(() => {
+    if (dialog.current?.open)
+      end.current?.scrollIntoView({ behavior: "instant", block: "end" });
+  }, [messages, isPending, failed]);
   return (
     <>
-      {/* Floating Action Button */}
       <button
-        onClick={() => setIsOpen(true)}
-        aria-label="Open AI Copilot"
-        aria-expanded={isOpen}
-        aria-controls="ai-copilot-panel"
-        className={`
-          fixed bottom-8 right-8 z-40 flex h-16 w-16 items-center justify-center 
-          rounded-full bg-primary text-primary-foreground shadow-card border border-white/10 
-          transition-all duration-300 ease-out hover:scale-105 hover:bg-primary-hover
-          ${isOpen ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"}
-        `}
+        onClick={() => {
+          dialog.current?.showModal();
+          input.current?.focus();
+        }}
+        aria-label="Open JanSetu Guide"
+        className="no-print fixed bottom-5 right-5 z-30 flex size-12 items-center justify-center rounded-full bg-primary text-white shadow-lg transition-colors hover:bg-primary-hover lg:hidden"
       >
-        <Sparkles size={28} className="animate-pulse" />
+        <MessageCircle size={23} />
       </button>
-
-      {/* Backdrop Overlay */}
-      <div
-        aria-hidden="true"
-        onClick={() => setIsOpen(false)}
-        className={`
-          fixed inset-0 z-50 bg-foreground/10 backdrop-blur-md transition-opacity duration-500
-          ${isOpen ? "opacity-100" : "pointer-events-none opacity-0"}
-        `}
-      />
-
-      {/* Gemini-Style Centered Chat Modal */}
-      <div
-        id="ai-copilot-panel"
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="JanSetu AI Assistant"
-        className={`
-          fixed inset-0 sm:inset-6 md:inset-x-[10%] lg:inset-x-[20%] xl:inset-x-[25%] md:inset-y-10 z-50 
-          flex flex-col bg-background sm:rounded-[2rem] shadow-2xl overflow-hidden
-          transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] border border-black/5
-          ${isOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-12 opacity-0 scale-95 pointer-events-none"}
-        `}
+      <dialog
+        ref={dialog}
+        aria-labelledby="guide-title"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) dialog.current?.close();
+        }}
+        className="fixed inset-y-0 left-auto right-0 m-0 h-dvh max-h-none w-full max-w-[620px] border-l bg-white p-0 text-foreground shadow-2xl backdrop:bg-[#0b211b]/35 open:flex open:flex-col sm:inset-y-4 sm:right-4 sm:h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border"
       >
-        {/* Header */}
-        <header className="flex-shrink-0 flex items-center justify-between px-8 py-5">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b p-5">
           <div className="flex items-center gap-3">
-            <Sparkles size={22} className="text-primary" />
-            <h2 className="text-[18px] font-semibold text-foreground tracking-tight font-heading">
-              JanSetu Copilot
-            </h2>
+            <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-primary">
+              <MessageCircle size={21} />
+            </span>
+            <div>
+              <h2 id="guide-title" className="text-base">
+                JanSetu Guide
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Your scheme research companion
+              </p>
+            </div>
           </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            aria-label="Close panel"
-            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground"
-          >
-            <X size={24} />
-          </button>
+          <div className="flex gap-1">
+            <button
+              disabled={isPending || !messages.length}
+              aria-label="Clear conversation"
+              onClick={() => {
+                setMessages([]);
+                context.current = [];
+                setFailed(null);
+              }}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-muted disabled:opacity-30"
+            >
+              <RotateCcw size={18} />
+            </button>
+            <button
+              aria-label="Close guide"
+              onClick={() => dialog.current?.close()}
+              className="rounded-lg p-2 hover:bg-muted"
+            >
+              <X size={21} />
+            </button>
+          </div>
         </header>
-
-        {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 scroll-smooth">
-          <div className="max-w-3xl mx-auto h-full flex flex-col">
-            {messages.length === 0 ? (
-              <div className="flex flex-1 flex-col justify-center pb-12 animate-in fade-in duration-700">
-                <EmptyState onPromptClick={handleSendMessage} />
-              </div>
-            ) : (
-              <div className="flex flex-col gap-8 pb-4">
-                {messages.map((msg) => (
-                  <div key={msg.id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <ChatMessageComponent message={msg} />
-                  </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-7">
+          {!messages.length ? (
+            <div className="flex min-h-full flex-col justify-center">
+              <BookOpen
+                size={29}
+                className="mb-5 text-primary"
+                strokeWidth={1.5}
+              />
+              <h3 className="editorial text-4xl">Let’s find your next step.</h3>
+              <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
+                Ask about benefits, compare your options, or understand the
+                documents you’ll need. Answers are grounded in the JanSetu
+                catalogue.
+              </p>
+              <div className="mt-7 space-y-3">
+                {PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => void send(prompt)}
+                    className="flex w-full items-center justify-between gap-4 rounded-xl border p-4 text-left text-sm transition-colors hover:border-primary/40 hover:bg-muted/50"
+                  >
+                    {prompt}
+                    <ArrowUpRight className="shrink-0 text-primary" size={17} />
+                  </button>
                 ))}
-                {mutation.isPending && (
-                  <div className="animate-in fade-in duration-300">
-                    <TypingIndicator />
-                  </div>
-                )}
-                <div ref={messagesEndRef} className="h-4 w-full" />
               </div>
-            )}
-          </div>
+              <p className="mt-6 text-xs leading-5 text-muted-foreground">
+                Local catalogue mode works without a model API key.
+                Conversations stay in this workspace session.
+              </p>
+            </div>
+          ) : (
+            <div
+              className="space-y-7"
+              role="log"
+              aria-label="Conversation"
+              aria-live="polite"
+              aria-relevant="additions"
+            >
+              {messages.map((message) => (
+                <Message
+                  key={message.id}
+                  message={message}
+                  disabled={isPending}
+                  onFollowUp={(text) => void send(text)}
+                />
+              ))}
+              {isPending && (
+                <p
+                  role="status"
+                  className="flex items-center gap-2 text-sm text-muted-foreground"
+                >
+                  <span className="size-2 animate-pulse rounded-full bg-primary" />
+                  Checking the catalogue…
+                </p>
+              )}
+              {failed && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-destructive/25 bg-red-50 p-4 text-sm"
+                >
+                  <p>
+                    We couldn’t reach the guide. Your question is still here.
+                  </p>
+                  <button
+                    className="text-link mt-2"
+                    onClick={() => void send(failed)}
+                  >
+                    Retry question
+                  </button>
+                </div>
+              )}
+              <div ref={end} />
+            </div>
+          )}
         </div>
-
-        {/* Footer Input Area */}
-        <div className="flex-shrink-0 px-4 sm:px-8 pb-6 pt-2 bg-gradient-to-t from-background via-background to-transparent">
-          <div className="max-w-3xl mx-auto">
-            <ChatInput onSend={handleSendMessage} disabled={mutation.isPending} />
-            <p className="text-center text-[12px] text-muted-foreground mt-3 font-medium">
-              Gemini may display inaccurate info, so double-check its responses.
-            </p>
+        <form
+          className="shrink-0 border-t p-4 sm:p-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void send(draft);
+          }}
+        >
+          <div className="flex items-end gap-2 rounded-xl border bg-background p-2 focus-within:border-primary">
+            <textarea
+              ref={input}
+              aria-label="Ask JanSetu Guide"
+              rows={2}
+              maxLength={1000}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Ask a question, or follow up…"
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing
+                ) {
+                  e.preventDefault();
+                  void send(draft);
+                }
+              }}
+              className="max-h-32 min-h-12 flex-1 resize-none bg-transparent p-2 text-sm outline-none"
+            />
+            <button
+              type="submit"
+              disabled={isPending || !draft.trim()}
+              aria-label="Send message"
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white disabled:opacity-40"
+            >
+              <SendHorizontal size={18} />
+            </button>
           </div>
-        </div>
-      </div>
+          <div className="mt-2 flex justify-between gap-3 text-[10px] text-muted-foreground">
+            <span>
+              Verify important requirements with the official department.
+            </span>
+            <span>{draft.length}/1000</span>
+          </div>
+        </form>
+      </dialog>
     </>
   );
 }
