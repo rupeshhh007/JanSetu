@@ -13,6 +13,8 @@ export function useUpdateProfile() {
     mutationFn: updateProfile,
 
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["eligibility"] });
+      queryClient.invalidateQueries({ queryKey: ["recommendations"] });
       toast.success("Profile updated successfully");
 
       queryClient.invalidateQueries({

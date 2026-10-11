@@ -18,7 +18,7 @@ import {
   OCCUPATIONS,
 } from "@/lib/constants/profile";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,9 +112,18 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
   }
 
   return (
-    <Card className="mx-auto max-w-6xl border border-border">
-      <CardHeader className="border-b border-border pb-5">
-        <CardTitle className="text-xl">Citizen Profile</CardTitle>
+    <Card className="mx-auto max-w-6xl">
+      <CardHeader className="border-b-2 border-border pb-5">
+        <p className="noticeboard-kicker text-primary">
+          Your eligibility record
+        </p>
+        <h1 className="editorial mt-1 text-4xl">
+          {isEdit ? "Your citizen profile" : "Build your profile"}
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm text-text-muted">
+          Use accurate information. JanSetu uses this only to explain possible
+          scheme matches; confirm eligibility with the official department.
+        </p>
       </CardHeader>
 
       <CardContent className="pt-6">
@@ -284,7 +293,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
             <SectionHeading icon={ListChecks} title="Additional Information" />
 
             <div className="grid gap-4 md:grid-cols-3">
-              <label className="flex items-center gap-3 rounded-lg border border-border p-4 cursor-pointer transition-colors hover:bg-muted/50">
+              <label className="flex min-h-14 items-center gap-3 border-2 border-border bg-surface p-4 cursor-pointer transition-colors hover:bg-accent/40">
                 <input
                   type="checkbox"
                   className="size-4 accent-primary"
@@ -294,7 +303,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
                 <span className="text-sm font-medium">Student</span>
               </label>
 
-              <label className="flex items-center gap-3 rounded-lg border border-border p-4 cursor-pointer transition-colors hover:bg-muted/50">
+              <label className="flex min-h-14 items-center gap-3 border-2 border-border bg-surface p-4 cursor-pointer transition-colors hover:bg-accent/40">
                 <input
                   type="checkbox"
                   className="size-4 accent-primary"
@@ -304,20 +313,26 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
                 <span className="text-sm font-medium">Farmer</span>
               </label>
 
-              <label className="flex items-center gap-3 rounded-lg border border-border p-4 cursor-pointer transition-colors hover:bg-muted/50">
+              <label className="flex min-h-14 items-center gap-3 border-2 border-border bg-surface p-4 cursor-pointer transition-colors hover:bg-accent/40">
                 <input
                   type="checkbox"
                   className="size-4 accent-primary"
                   {...register("hasDisability")}
                 />
 
-                <span className="text-sm font-medium">Person with Disability</span>
+                <span className="text-sm font-medium">
+                  Person with Disability
+                </span>
               </label>
             </div>
           </section>
 
           <div className="flex justify-end border-t border-border pt-6">
-            <Button type="submit" disabled={isPending} className="h-10 min-w-40">
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="h-12 min-w-44 rounded-none border border-border rounded-lg font-bold shadow-sm"
+            >
               {isPending
                 ? "Saving..."
                 : isEdit

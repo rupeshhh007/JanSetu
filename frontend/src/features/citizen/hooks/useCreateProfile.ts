@@ -13,6 +13,8 @@ export function useCreateProfile() {
     mutationFn: createProfile,
 
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["eligibility"] });
+      queryClient.invalidateQueries({ queryKey: ["recommendations"] });
       toast.success("Profile created successfully");
 
       queryClient.invalidateQueries({

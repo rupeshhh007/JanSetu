@@ -1,28 +1,9 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 interface EnumSelectProps {
   value: string;
   placeholder: string;
   options: readonly string[];
   onChange: (value: string) => void;
 }
-
-function formatLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split("_")
-    .map(
-      (word) => word.charAt(0).toUpperCase() + word.slice(1)
-    )
-    .join(" ");
-}
-
 export function EnumSelect({
   value,
   placeholder,
@@ -30,28 +11,23 @@ export function EnumSelect({
   onChange,
 }: EnumSelectProps) {
   return (
-    <Select
+    <select
       value={value}
-      onValueChange={(value) => {
-        if (value !== null) {
-          onChange(value);
-        }
-      }}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm"
     >
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem
-            key={option}
-            value={option}
-          >
-            {formatLabel(option)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      <option value="" disabled>
+        {placeholder}
+      </option>
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option
+            .toLowerCase()
+            .split("_")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ")}
+        </option>
+      ))}
+    </select>
   );
 }

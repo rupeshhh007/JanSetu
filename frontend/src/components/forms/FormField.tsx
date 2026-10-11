@@ -1,14 +1,10 @@
 import type { ReactNode } from "react";
-
-import { Label } from "@/components/ui/label";
-
 interface FormFieldProps {
   label: string;
   error?: string;
   required?: boolean;
   children: ReactNode;
 }
-
 export function FormField({
   label,
   error,
@@ -17,17 +13,19 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <div className="space-y-2">
-      <Label>
-        {label}
-        {required && (
-          <span className="ml-1 text-destructive">*</span>
-        )}
-      </Label>
-
-      {children}
-
+      <label className="block space-y-2">
+        <span className="block text-sm font-medium">
+          {label}
+          {required && (
+            <span aria-hidden="true" className="ml-1 text-destructive">
+              *
+            </span>
+          )}
+        </span>
+        {children}
+      </label>
       {error && (
-        <p className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}

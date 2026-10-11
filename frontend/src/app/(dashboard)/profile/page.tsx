@@ -8,13 +8,20 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <p className="text-muted-foreground">Loading profile...</p>
+      <p className="noticeboard-kicker text-text-muted" role="status">
+        Opening your profile…
+      </p>
     );
   }
 
   if (isError) {
     return (
-      <p className="text-destructive">Failed to load profile.</p>
+      <div
+        role="alert"
+        className="border-2 border-destructive bg-surface p-6 text-destructive shadow-[4px_4px_0_#c52626]"
+      >
+        We could not load your profile. Refresh to try again.
+      </div>
     );
   }
 
