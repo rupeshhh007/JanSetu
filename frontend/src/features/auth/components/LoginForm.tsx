@@ -31,12 +31,9 @@ export function LoginForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5"
-    >
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div>
-        <label className="mb-2 block text-sm font-medium">
+        <label htmlFor="login-email" className="mb-2 block text-sm font-bold">
           Email
         </label>
 
@@ -47,6 +44,7 @@ export function LoginForm() {
           />
 
           <Input
+            id="login-email"
             type="email"
             placeholder="Enter your email"
             className="h-10 pl-9"
@@ -55,14 +53,21 @@ export function LoginForm() {
         </div>
 
         {errors.email && (
-          <p className="mt-1 text-sm text-destructive">
+          <p
+            id="login-email-error"
+            className="mt-1 text-sm font-medium text-destructive"
+            role="alert"
+          >
             {errors.email.message}
           </p>
         )}
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium">
+        <label
+          htmlFor="login-password"
+          className="mb-2 block text-sm font-bold"
+        >
           Password
         </label>
 
@@ -73,6 +78,7 @@ export function LoginForm() {
           />
 
           <Input
+            id="login-password"
             type="password"
             placeholder="Enter your password"
             className="h-10 pl-9"
@@ -81,7 +87,11 @@ export function LoginForm() {
         </div>
 
         {errors.password && (
-          <p className="mt-1 text-sm text-destructive">
+          <p
+            id="login-password-error"
+            className="mt-1 text-sm font-medium text-destructive"
+            role="alert"
+          >
             {errors.password.message}
           </p>
         )}
@@ -90,7 +100,7 @@ export function LoginForm() {
       <Button
         type="submit"
         disabled={isPending}
-        className="h-10 w-full"
+        className="h-12 w-full rounded-none border border-border rounded-lg font-bold shadow-sm"
       >
         {isPending ? "Signing In..." : "Sign In"}
       </Button>
