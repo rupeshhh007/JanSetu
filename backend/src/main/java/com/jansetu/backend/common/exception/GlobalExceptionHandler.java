@@ -4,6 +4,7 @@ import com.jansetu.backend.application.exception.*;
 import com.jansetu.backend.common.dto.ErrorResponse;
 import com.jansetu.backend.profile.exception.ProfileNotFoundException;
 import com.jansetu.backend.scheme.exception.SchemeNotFoundException;
+import com.jansetu.backend.scheme.exception.SchemePublicationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +42,7 @@ public class GlobalExceptionHandler {
     }
 
     // Handle Not Found exceptions (404)
-    @ExceptionHandler({ProfileNotFoundException.class, SchemeNotFoundException.class})
+    @ExceptionHandler({ProfileNotFoundException.class, SchemeNotFoundException.class, ApplicationNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(BusinessException ex) {
         return buildResponse(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage());
     }
@@ -58,6 +59,17 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
     }
 
+    @ExceptionHandler(SchemePublicationException.class)
+    public ResponseEntity<ErrorResponse> handleSchemePublication(SchemePublicationException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Scheme Is Not Ready To Publish", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidApplicationStatusTransitionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStatusTransition(
+            InvalidApplicationStatusTransitionException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Invalid Application Status Transition", ex.getMessage());
+    }
+
     // Handle Validation Errors (400)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
@@ -67,6 +79,17 @@ public class GlobalExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation Failed", errorMessage);
+    }
+
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ErrorResponse> handleMalformedRequest(Exception ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Invalid Request", "Check the request format and field types.");
+    }
+
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleConcurrentUpdate(Exception ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Concurrent Update", "This record changed. Refresh and try again.");
     }
 
     // Fallback for unexpected exceptions (500)

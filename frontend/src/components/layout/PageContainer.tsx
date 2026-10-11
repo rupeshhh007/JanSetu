@@ -23,7 +23,7 @@ export function PageContainer({
       className={cn(
         "mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8",
         WIDTH_MAP[width],
-        className
+        className,
       )}
     >
       {children}

@@ -21,7 +21,7 @@ export function useLogin() {
 
       toast.success("Login successful!");
 
-      router.push("/dashboard");
+      router.push(data.role === "ADMIN" ? "/admin" : "/dashboard");
     },
 
     onError: (error) => {

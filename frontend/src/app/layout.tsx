@@ -1,13 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-outfit",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -22,7 +15,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#FDFBF7",
+  themeColor: "#163d32",
 };
 
 export default function RootLayout({
@@ -31,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${outfit.variable} font-sans antialiased`}>
+    <html lang="en" data-scroll-behavior="smooth">
+      <body className="font-sans antialiased">
         {/* Accessibility: Skip to main content */}
         <a
           href="#main-content"

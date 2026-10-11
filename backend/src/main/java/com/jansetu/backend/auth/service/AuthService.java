@@ -4,7 +4,6 @@ import com.jansetu.backend.auth.dto.LoginRequest;
 import com.jansetu.backend.auth.dto.LoginResponse;
 import com.jansetu.backend.auth.dto.RegisterRequest;
 import com.jansetu.backend.auth.dto.RegisterResponse;
-import com.jansetu.backend.auth.entity.Role;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.auth.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -33,27 +32,22 @@ public class AuthService {
     }
 
     public RegisterResponse register(RegisterRequest request) {
-        log.info("Attempting to register new user with email: {}", request.email());
+        String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
+        log.info("Attempting to register new user with email: {}", email);
 
-        Optional<User> existingUser = userRepository.findByEmail(request.email());
+        Optional<User> existingUser = userRepository.findByEmail(email);
         if (existingUser.isPresent()) {
             log.warn("Registration failed - email already exists: {}", request.email());
-            throw new EmailAlreadyExistsException(); // Note: You can swap this to a custom BusinessException later!
+            throw new EmailAlreadyExistsException();
         }
 
         String hashedPassword = passwordEncoder.encode(request.password());
 
         User user = new User();
-        user.setEmail(request.email());
+        user.setEmail(email);
         user.setPasswordHash(hashedPassword);
-        
-        // Demo/Resume Project Hack: Automatically make emails containing 'admin' an ADMIN
-        if (request.email().toLowerCase().contains("admin")) {
-            user.setRole(Role.ADMIN);
-        } else {
-            user.setRole(Role.CITIZEN);
-        }
-        
+        // Registration is deliberately citizen-only. Administrator accounts are
+        // provisioned by an operator, never inferred from an email address.
         user.setEnabled(true);
 
         User savedUser = userRepository.save(user);
@@ -63,17 +57,18 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest request) {
-        log.info("Login attempt for email: {}", request.email());
+        String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
+        log.info("Login attempt for email: {}", email);
 
         // 1. Find the user by email
-        User user = userRepository.findByEmail(request.email())
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> {
                     log.warn("Login failed - user not found: {}", request.email());
                     return new InvalidCredentialsException();
                 });
 
         // 2. Check if the password matches the hash in the database
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (!user.isEnabled() || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             log.warn("Login failed - bad password for email: {}", request.email());
             throw new InvalidCredentialsException();
         }

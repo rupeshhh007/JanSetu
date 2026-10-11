@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 @Data
 @Builder
@@ -16,4 +17,5 @@ public class ApplicationResponse {
     private String remarks;
     private LocalDateTime submittedAt;
     private LocalDateTime updatedAt;
+    private List<ApplicationStatusHistoryResponse> history;
 }

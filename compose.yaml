@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: jansetu
+      POSTGRES_USER: jansetu
+      POSTGRES_PASSWORD: jansetu
+    ports:
+      - "5432:5432"
+    volumes:
+      - jansetu-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jansetu -d jansetu"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  jansetu-postgres:

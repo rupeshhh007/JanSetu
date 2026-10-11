@@ -5,10 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock, ShieldCheck } from "lucide-react";
 
-import {
-  registerSchema,
-  type RegisterFormValues,
-} from "../schema/authSchemas";
+import { registerSchema, type RegisterFormValues } from "../schema/authSchemas";
 import { useRegister } from "../hooks/useRegister";
 
 import { Button } from "@/components/ui/button";
@@ -38,12 +35,12 @@ export function RegisterForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5"
-    >
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div>
-        <label className="mb-2 block text-sm font-medium">
+        <label
+          htmlFor="register-email"
+          className="mb-2 block text-sm font-bold"
+        >
           Email
         </label>
 
@@ -54,6 +51,7 @@ export function RegisterForm() {
           />
 
           <Input
+            id="register-email"
             type="email"
             placeholder="Enter your email"
             className="h-10 pl-9"
@@ -69,7 +67,10 @@ export function RegisterForm() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium">
+        <label
+          htmlFor="register-password"
+          className="mb-2 block text-sm font-bold"
+        >
           Password
         </label>
 
@@ -80,6 +81,7 @@ export function RegisterForm() {
           />
 
           <Input
+            id="register-password"
             type="password"
             placeholder="Create a password"
             className="h-10 pl-9"
@@ -95,7 +97,10 @@ export function RegisterForm() {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium">
+        <label
+          htmlFor="register-confirm-password"
+          className="mb-2 block text-sm font-bold"
+        >
           Confirm Password
         </label>
 
@@ -106,6 +111,7 @@ export function RegisterForm() {
           />
 
           <Input
+            id="register-confirm-password"
             type="password"
             placeholder="Confirm password"
             className="h-10 pl-9"
@@ -123,7 +129,7 @@ export function RegisterForm() {
       <Button
         type="submit"
         disabled={isPending}
-        className="h-10 w-full"
+        className="h-12 w-full rounded-none border border-border rounded-lg font-bold shadow-sm"
       >
         {isPending ? "Creating Account..." : "Create Account"}
       </Button>

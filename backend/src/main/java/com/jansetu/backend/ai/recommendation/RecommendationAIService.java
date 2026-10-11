@@ -1,152 +1,111 @@
 package com.jansetu.backend.ai.recommendation;
 
-import com.jansetu.backend.application.entity.Application;
+import com.jansetu.backend.ai.dto.ChatCard;
+import com.jansetu.backend.ai.dto.ChatResult;
+import com.jansetu.backend.ai.dto.Citation;
 import com.jansetu.backend.application.repository.ApplicationRepository;
 import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.auth.service.CurrentUserService;
 import com.jansetu.backend.profile.entity.CitizenProfile;
 import com.jansetu.backend.profile.service.CitizenProfileService;
 import com.jansetu.backend.scheme.dto.RecommendationResponse;
+import com.jansetu.backend.scheme.dto.SchemeResponse;
 import com.jansetu.backend.scheme.service.MatchingService;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
-import com.jansetu.backend.auth.service.CurrentUserService;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Recommendation text is intentionally deterministic. A language model may
+ * later rephrase it, but it never decides eligibility or invents a scheme.
+ */
 @Service
 public class RecommendationAIService {
 
     private final MatchingService matchingService;
-
     private final CitizenProfileService profileService;
-
     private final ApplicationRepository applicationRepository;
-
-    private final ChatClient chatClient;
     private final CurrentUserService currentUserService;
-
 
     public RecommendationAIService(
             MatchingService matchingService,
             CitizenProfileService profileService,
             ApplicationRepository applicationRepository,
-            CurrentUserService currentUserService,
-            ChatClient.Builder builder
+            CurrentUserService currentUserService
     ) {
-
         this.matchingService = matchingService;
         this.profileService = profileService;
         this.applicationRepository = applicationRepository;
         this.currentUserService = currentUserService;
-        this.chatClient = builder.build();
     }
 
-    public String generateRecommendation() {
+    public ChatResult generateRecommendation() {
         User user = currentUserService.getCurrentUser();
+        CitizenProfile profile = profileService.getProfileEntity(user);
+        List<RecommendationResponse> recommendations = matchingService.getRecommendations(user);
+        Set<UUID> appliedSchemeIds = applicationRepository.findByCitizenProfile(profile).stream()
+                .filter(application -> application.getStatus() != com.jansetu.backend.application.enums.ApplicationStatus.REJECTED
+                        && application.getStatus() != com.jansetu.backend.application.enums.ApplicationStatus.WITHDRAWN)
+                .map(application -> application.getScheme().getId())
+                .collect(Collectors.toSet());
 
-        CitizenProfile profile =
-                profileService.getProfileEntity(user);
+        List<RecommendationResponse> available = recommendations.stream()
+                .filter(recommendation -> !appliedSchemeIds.contains(recommendation.getScheme().getId()))
+                .sorted(Comparator.comparing(item -> item.getScheme().getName()))
+                .toList();
 
-        List<RecommendationResponse> recommendations =
-                matchingService.getRecommendations(user);
-
-        List<Application> applications =
-                applicationRepository.findByCitizenProfile(profile);
-
-        Set<UUID> appliedSchemeIds =
-                applications.stream()
-                        .map(application -> application.getScheme().getId())
-                        .collect(Collectors.toSet());
-
-        List<RecommendationResponse> availableSchemes =
-                recommendations.stream()
-                        .filter(recommendation ->
-                                !appliedSchemeIds.contains(
-                                        recommendation.getScheme().getId()
-                                )
-                        )
-                        .toList();
-
-        if (availableSchemes.isEmpty()) {
-
-            return """
-You have already applied for every scheme you are currently eligible for.
-
-Please wait for your existing applications to be reviewed before applying again.
-""";
+        if (available.isEmpty()) {
+            return new ChatResult(
+                    "I couldn’t find a new scheme that your saved profile satisfies in the current JanSetu catalogue. "
+                            + "This is not a final government decision. Update incomplete profile details or check existing applications.",
+                    List.of(), List.of(),
+                    List.of("Show my application status", "What profile information can improve matching?"),
+                    true
+            );
         }
 
-        StringBuilder builder = new StringBuilder();
+        StringBuilder text = new StringBuilder("## Your eligible schemes\n\n")
+                .append("These results use the eligibility rules recorded in JanSetu. "
+                        + "Confirm final eligibility on the official source before applying.\n\n");
+        List<Citation> citations = new ArrayList<>();
+        List<ChatCard> cards = new ArrayList<>();
 
-        builder.append("""
-The citizen can still apply for ONLY the following schemes.
-
-Never mention any other scheme.
-
-Never invent schemes.
-
-Explain why these schemes are good choices.
-
-==================================================
-
-""");
-
-        for (RecommendationResponse recommendation : availableSchemes) {
-
-            builder.append("Scheme: ")
-                    .append(recommendation.getScheme().getName())
-                    .append("\n");
-
-            builder.append("Description: ")
-                    .append(recommendation.getScheme().getDescription())
-                    .append("\n");
-
-            builder.append("Match Percentage: ")
-                    .append(recommendation.getMatchPercentage())
-                    .append("%\n");
-
-            builder.append("Reasons:\n");
-
-            for (String reason : recommendation.getMatchedCriteria()) {
-
-                builder.append("- ")
-                        .append(reason)
-                        .append("\n");
+        for (int index = 0; index < available.size(); index++) {
+            RecommendationResponse recommendation = available.get(index);
+            SchemeResponse scheme = recommendation.getScheme();
+            text.append(index + 1).append(". **").append(scheme.getName()).append("** — ")
+                    .append(scheme.getDescription()).append("\n")
+                    .append("   - Why it appears: ")
+                    .append(String.join("; ", recommendation.getMatchedCriteria())).append("\n");
+            if (scheme.getBenefits() != null && !scheme.getBenefits().isEmpty()) {
+                text.append("   - Recorded benefit: ").append(String.join("; ", scheme.getBenefits())).append("\n");
             }
-
-            builder.append("\n--------------------------------------\n\n");
+            citations.add(citationFor(scheme));
+            cards.add(new ChatCard(
+                    "scheme", scheme.getName(), scheme.getDescription(), scheme.getId().toString(),
+                    recommendation.getMatchedCriteria(), "View official source", scheme.getOfficialUrl()
+            ));
         }
 
-        builder.append("""
-Explain which scheme should be applied for first.
+        return new ChatResult(
+                text.toString(), List.copyOf(citations), List.copyOf(cards),
+                List.of("What documents are recorded for these schemes?", "Compare these schemes"), true
+        );
+    }
 
-Rank them in priority order.
-
-Keep the answer under 200 words.
-
-Use markdown.
-
-Never mention schemes that are not listed above.
-""");
-
-        return chatClient
-                .prompt()
-                .system("""
-You are JanSetu AI.
-
-You ONLY explain recommendations.
-
-Never invent schemes.
-
-Never invent benefits.
-
-Never recommend schemes outside the supplied list.
-""")
-                .user(builder.toString())
-                .call()
-                .content();
+    private Citation citationFor(SchemeResponse scheme) {
+        Instant lastVerified = scheme.getLastVerifiedAt();
+        return new Citation(
+                scheme.getName(),
+                scheme.getSourceName() == null ? "JanSetu catalogue" : scheme.getSourceName(),
+                scheme.getOfficialUrl(),
+                lastVerified == null ? null : lastVerified.toString()
+        );
     }
 }

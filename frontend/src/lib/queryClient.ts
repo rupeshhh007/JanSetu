@@ -1,3 +1,4 @@
+import axios from "axios";
 import { QueryClient } from "@tanstack/react-query";
 
 export const queryClient = new QueryClient({
@@ -5,12 +6,12 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5,
       gcTime: 1000 * 60 * 30,
-      retry: 2,
+      retry: (count, error) => !(axios.isAxiosError(error) && error.response && error.response.status < 500) && count < 2,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
     },
     mutations: {
-      retry: 1,
+      retry: false,
     },
   },
 });

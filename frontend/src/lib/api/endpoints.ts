@@ -7,10 +7,12 @@ export const API_ENDPOINTS = {
   UPDATE_PROFILE: "/api/v1/citizen/profile",
 
   GET_SCHEMES: "/api/v1/schemes",
+  GET_ADMIN_SCHEMES: "/api/v1/schemes/admin",
   GET_RECOMMENDATIONS: "/api/v1/matching/recommendations",
 
   GET_APPLICATIONS: "/api/v1/applications",
   APPLY_TO_SCHEME: "/api/v1/applications",
+  ADMIN_APPLICATIONS: "/api/v1/admin/applications",
   AI_EXPLAIN: "/api/v1/ai/explain",
   AI_CHAT: "/api/v1/ai/chat",  
 } as const;

@@ -1,12 +1,5 @@
 import { z } from "zod";
 
-import type {
-  Category,
-  Gender,
-  MaritalStatus,
-  PrimaryOccupation,
-} from "../types";
-
 export const profileSchema = z.object({
   firstName: z
     .string()
@@ -26,7 +19,7 @@ export const profileSchema = z.object({
       "Date of birth must be in the past"
     ),
 
-  gender: z.custom<Gender>(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]),
 
   state: z
     .string()
@@ -45,16 +38,16 @@ export const profileSchema = z.object({
       "Enter a valid 6-digit Indian pincode"
     ),
 
-  category: z.custom<Category>(),
+  category: z.enum(["GENERAL", "OBC", "SC", "ST"]),
 
   annualFamilyIncome: z
     .number()
     .min(0, "Income cannot be negative"),
 
-  maritalStatus: z.custom<MaritalStatus>(),
+  maritalStatus: z.enum(["SINGLE", "MARRIED", "WIDOWED", "DIVORCED"]),
 
   primaryOccupation:
-    z.custom<PrimaryOccupation>(),
+    z.enum(["SALARIED", "BUSINESS", "DAILY_WAGE", "UNEMPLOYED", "STUDENT", "FARMER"]),
 
   isStudent: z.boolean(),
 

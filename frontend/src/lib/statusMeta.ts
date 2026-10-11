@@ -4,6 +4,7 @@ import {
   Clock,
   Send,
   FileEdit,
+  Ban,
   type LucideIcon,
 } from "lucide-react";
 
@@ -45,6 +46,12 @@ export const APPLICATION_STATUS_META: Record<ApplicationStatus, StatusMeta> = {
     label: "Draft",
     icon: FileEdit,
     badgeClassName: "bg-secondary text-secondary-foreground hover:bg-secondary",
+    iconClassName: "bg-muted text-muted-foreground",
+  },
+  WITHDRAWN: {
+    label: "Withdrawn",
+    icon: Ban,
+    badgeClassName: "bg-muted text-muted-foreground hover:bg-muted",
     iconClassName: "bg-muted text-muted-foreground",
   },
 };

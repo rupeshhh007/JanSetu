@@ -8,12 +8,12 @@ import com.jansetu.backend.ai.dto.ExplainResponse;
 import com.jansetu.backend.ai.service.AIService;
 import com.jansetu.backend.auth.entity.User;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 
 @RestController
 @RequestMapping("/api/v1/ai")
-@CrossOrigin(origins = "*")
 public class AIController {
 
     private final AIService aiService;
@@ -34,12 +34,9 @@ public class AIController {
 
     @PostMapping("/chat")
     public ChatResponse chat(
-            @RequestBody ChatRequest request
+            @Valid @RequestBody ChatRequest request
     ) {
-
-        return new ChatResponse(
-                aiService.chat(request)
-        );
+        return ChatResponse.from(aiService.chat(request));
     }
 
     @GetMapping("/context")
