@@ -7,17 +7,27 @@ import { useRecommendations } from "@/features/recommendations/hooks/useRecommen
 import { useProfile } from "@/features/citizen/hooks/useProfile";
 export default function RecommendationsPage() {
   const profile = useProfile();
-  const query = useRecommendations();
+  const query = useRecommendations(Boolean(profile.data));
+  const recommendations = query.data ?? [];
+  const readyCount = recommendations.filter(
+    (recommendation) => recommendation.recommendationState === "READY_TO_REVIEW",
+  ).length;
+  const profileActionCount = recommendations.filter(
+    (recommendation) => recommendation.recommendationState === "PROFILE_INFORMATION_NEEDED",
+  ).length;
+  const policyReviewCount = recommendations.filter(
+    (recommendation) => recommendation.recommendationState === "POLICY_INFORMATION_UNAVAILABLE",
+  ).length;
   return (
     <div className="space-y-7">
       <div>
         <h1 className="editorial text-4xl sm:text-5xl">
-          Support, with you in mind.
+          A shortlist you can verify.
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Matches come from your saved profile and the catalogue’s recorded
-          rules. Every result explains why it appears. Final eligibility is
-          determined by the official department.
+          Results use your saved profile and recorded scheme requirements. We
+          show what is supported by your information, what is still needed, and
+          the next action. Final eligibility is determined by the official department.
         </p>
       </div>
       {profile.isLoading || query.isLoading ? (
@@ -49,7 +59,7 @@ export default function RecommendationsPage() {
             Create my profile <ArrowRight size={16} />
           </Link>
         </section>
-      ) : !query.data?.length ? (
+      ) : !recommendations.length ? (
         <section className="paper-card p-10 text-center">
           <h2 className="editorial text-3xl">No recorded matches just yet.</h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
@@ -66,10 +76,22 @@ export default function RecommendationsPage() {
         </section>
       ) : (
         <>
-          <p className="text-sm text-primary">
-            {query.data.length} schemes meet the recorded requirements
-          </p>
-          <RecommendationGrid recommendations={query.data} />
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y py-4 text-sm">
+            <p className="font-medium text-primary">
+              {readyCount} {readyCount === 1 ? "scheme is" : "schemes are"} ready to review
+            </p>
+            {profileActionCount > 0 ? (
+              <p className="text-warning">
+                {profileActionCount} {profileActionCount === 1 ? "needs" : "need"} more profile information
+              </p>
+            ) : null}
+            {policyReviewCount > 0 ? (
+              <p className="text-muted-foreground">
+                {policyReviewCount} {policyReviewCount === 1 ? "scheme needs" : "schemes need"} policy details recorded
+              </p>
+            ) : null}
+          </div>
+          <RecommendationGrid recommendations={recommendations} />
         </>
       )}
     </div>

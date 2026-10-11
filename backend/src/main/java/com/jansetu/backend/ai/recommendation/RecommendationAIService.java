@@ -9,6 +9,7 @@ import com.jansetu.backend.auth.service.CurrentUserService;
 import com.jansetu.backend.profile.entity.CitizenProfile;
 import com.jansetu.backend.profile.service.CitizenProfileService;
 import com.jansetu.backend.scheme.dto.RecommendationResponse;
+import com.jansetu.backend.scheme.dto.RecommendationState;
 import com.jansetu.backend.scheme.dto.SchemeResponse;
 import com.jansetu.backend.scheme.service.MatchingService;
 import org.springframework.stereotype.Service;
@@ -55,29 +56,32 @@ public class RecommendationAIService {
                 .map(application -> application.getScheme().getId())
                 .collect(Collectors.toSet());
 
-        List<RecommendationResponse> available = recommendations.stream()
+        List<RecommendationResponse> readyToReview = recommendations.stream()
+                .filter(recommendation -> recommendation.getRecommendationState() == RecommendationState.READY_TO_REVIEW)
                 .filter(recommendation -> !appliedSchemeIds.contains(recommendation.getScheme().getId()))
                 .sorted(Comparator.comparing(item -> item.getScheme().getName()))
                 .toList();
+        List<RecommendationResponse> profileInformationNeeded = recommendations.stream()
+                .filter(recommendation -> recommendation.getRecommendationState()
+                        == RecommendationState.PROFILE_INFORMATION_NEEDED)
+                .toList();
+        List<RecommendationResponse> policyInformationUnavailable = recommendations.stream()
+                .filter(recommendation -> recommendation.getRecommendationState()
+                        == RecommendationState.POLICY_INFORMATION_UNAVAILABLE)
+                .toList();
 
-        if (available.isEmpty()) {
-            return new ChatResult(
-                    "I couldn’t find a new scheme that your saved profile satisfies in the current JanSetu catalogue. "
-                            + "This is not a final government decision. Update incomplete profile details or check existing applications.",
-                    List.of(), List.of(),
-                    List.of("Show my application status", "What profile information can improve matching?"),
-                    true
-            );
+        if (readyToReview.isEmpty()) {
+            return noReadySchemeResult(profileInformationNeeded, policyInformationUnavailable);
         }
 
-        StringBuilder text = new StringBuilder("## Your eligible schemes\n\n")
-                .append("These results use the eligibility rules recorded in JanSetu. "
-                        + "Confirm final eligibility on the official source before applying.\n\n");
+        StringBuilder text = new StringBuilder("## Schemes ready to review\n\n")
+                .append("These are supported by the policy requirements currently recorded in JanSetu. "
+                        + "They are not official approval decisions; confirm the official details before applying.\n\n");
         List<Citation> citations = new ArrayList<>();
         List<ChatCard> cards = new ArrayList<>();
 
-        for (int index = 0; index < available.size(); index++) {
-            RecommendationResponse recommendation = available.get(index);
+        for (int index = 0; index < readyToReview.size(); index++) {
+            RecommendationResponse recommendation = readyToReview.get(index);
             SchemeResponse scheme = recommendation.getScheme();
             text.append(index + 1).append(". **").append(scheme.getName()).append("** — ")
                     .append(scheme.getDescription()).append("\n")
@@ -93,10 +97,53 @@ public class RecommendationAIService {
             ));
         }
 
+        appendNextSteps(text, profileInformationNeeded, policyInformationUnavailable);
+
         return new ChatResult(
                 text.toString(), List.copyOf(citations), List.copyOf(cards),
                 List.of("What documents are recorded for these schemes?", "Compare these schemes"), true
         );
+    }
+
+    private ChatResult noReadySchemeResult(
+            List<RecommendationResponse> profileInformationNeeded,
+            List<RecommendationResponse> policyInformationUnavailable
+    ) {
+        StringBuilder text = new StringBuilder("## What JanSetu can confirm\n\n")
+                .append("No scheme is ready to review from the recorded evidence in your current catalogue. "
+                        + "This is not a final government decision.\n\n");
+        appendNextSteps(text, profileInformationNeeded, policyInformationUnavailable);
+
+        return new ChatResult(
+                text.toString(), List.of(), List.of(),
+                List.of("Show my application status", "What profile information can improve matching?"), true
+        );
+    }
+
+    private void appendNextSteps(
+            StringBuilder text,
+            List<RecommendationResponse> profileInformationNeeded,
+            List<RecommendationResponse> policyInformationUnavailable
+    ) {
+        if (!profileInformationNeeded.isEmpty()) {
+            text.append("## Complete your profile\n\n")
+                    .append("JanSetu needs more information to check these recorded policies:\n");
+            for (RecommendationResponse recommendation : profileInformationNeeded) {
+                text.append("- **").append(recommendation.getScheme().getName()).append("** — ")
+                        .append(String.join("; ", recommendation.getMissingInformation())).append("\n");
+            }
+            text.append("\n");
+        }
+
+        if (!policyInformationUnavailable.isEmpty()) {
+            text.append("## Official policy review needed\n\n")
+                    .append("JanSetu has not recorded enough policy detail to assess:\n");
+            for (RecommendationResponse recommendation : policyInformationUnavailable) {
+                text.append("- **").append(recommendation.getScheme().getName()).append("** — ")
+                        .append("check the official source before making an application decision.\n");
+            }
+            text.append("\n");
+        }
     }
 
     private Citation citationFor(SchemeResponse scheme) {
