@@ -14,4 +14,8 @@ public class RecommendationResponse {
     // The context for the UI
     private int matchPercentage;
     private List<String> matchedCriteria;
+
+    /** Deterministic rules outcome; this is not an AI confidence score. */
+    private String eligibilityStatus;
+    private List<String> missingInformation;
 }

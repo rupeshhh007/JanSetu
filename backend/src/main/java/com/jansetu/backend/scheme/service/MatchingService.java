@@ -5,13 +5,14 @@ import com.jansetu.backend.profile.entity.CitizenProfile;
 import com.jansetu.backend.profile.service.CitizenProfileService;
 import com.jansetu.backend.scheme.dto.RecommendationResponse;
 import com.jansetu.backend.scheme.dto.SchemeResponse;
-import com.jansetu.backend.scheme.entity.EligibilityCriteria;
 import com.jansetu.backend.scheme.entity.Scheme;
+import com.jansetu.backend.scheme.entity.SchemeStatus;
 import com.jansetu.backend.scheme.evaluator.EligibilityEvaluator;
+import com.jansetu.backend.scheme.evaluator.EligibilityEvaluation;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Comparator;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,76 +37,72 @@ public class MatchingService {
         // 2. Fetch raw scheme entities
         List<Scheme> allSchemes = schemeService.getAllSchemesEntities();
 
-        // 3. Filter using your evaluator, map to DTO, and wrap in RecommendationResponse
+        // Eligibility is deterministic and explainable.  The percentage remains
+        // a backwards-compatible display of completed recorded checks, not an
+        // AI confidence or a promise of approval.
         return allSchemes.stream()
-                .filter(scheme -> evaluator.isEligible(profile, scheme.getEligibilityCriteria()))
+                .filter(scheme -> scheme.getStatus() == null || scheme.getStatus() == SchemeStatus.PUBLISHED)
+                .filter(scheme -> isAvailableInProfileJurisdiction(profile, scheme))
+                .map(scheme -> new EvaluatedScheme(
+                        scheme,
+                        evaluator.evaluateScheme(profile, scheme)
+                ))
+                .filter(item -> item.evaluation().isEligible())
                 .map(scheme -> {
-                    SchemeResponse schemeDto = mapToResponse(scheme);
-
-                    // ✅ FIX: Actually generate the dynamic reasons!
-                    List<String> dynamicReasons = generateMatchReasons(profile, scheme.getEligibilityCriteria());
+                    SchemeResponse schemeDto = mapToResponse(scheme.scheme());
+                    EligibilityEvaluation evaluation = scheme.evaluation();
 
                     return RecommendationResponse.builder()
                             .scheme(schemeDto)
-                            .matchPercentage(100)
-                            .matchedCriteria(dynamicReasons) // ✅ FIX: Pass the dynamically generated list here!
+                            .matchPercentage(compliancePercentage(evaluation))
+                            .matchedCriteria(evaluation.matchedCriteria())
+                            .eligibilityStatus(evaluation.outcome().name())
+                            .missingInformation(evaluation.missingInformation())
                             .build();
                 })
+                .sorted(Comparator
+                        .comparingInt(RecommendationResponse::getMatchPercentage).reversed()
+                        .thenComparing(item -> item.getScheme().getName()))
                 .collect(Collectors.toList());
     }
 
-    // --- NEW HELPER METHOD ---
-    private List<String> generateMatchReasons(CitizenProfile profile, EligibilityCriteria criteria) {
-        List<String> reasons = new ArrayList<>();
-
-        // 1. Boolean Flags
-        if (Boolean.TRUE.equals(criteria.getRequiresFarmer())) {
-            reasons.add("You are a registered farmer.");
+    private boolean isAvailableInProfileJurisdiction(CitizenProfile profile, Scheme scheme) {
+        String jurisdiction = scheme.getState();
+        if (jurisdiction == null || jurisdiction.isBlank()
+                || jurisdiction.equalsIgnoreCase("India")
+                || jurisdiction.equalsIgnoreCase("Central")) {
+            return true;
         }
-
-        if (Boolean.TRUE.equals(criteria.getRequiresStudent())) {
-            reasons.add("You are currently a student.");
-        }
-
-        if (Boolean.TRUE.equals(criteria.getRequiresDisability())) {
-            reasons.add("You meet the specific disability criteria.");
-        }
-
-        // 2. Income limits
-        if (criteria.getMaxFamilyIncome() != null) {
-            reasons.add(String.format("Your annual family income is below ₹%,d.", criteria.getMaxFamilyIncome().longValue()));
-        }
-
-        // 3. Lists (Category and Occupation)
-        if (criteria.getRequiredCategories() != null && !criteria.getRequiredCategories().isEmpty()) {
-            // Since they passed the evaluator check, we know their specific category is in the list
-            reasons.add("You belong to the eligible " + profile.getCategory() + " category.");
-        }
-
-        if (criteria.getAllowedOccupations() != null && !criteria.getAllowedOccupations().isEmpty()) {
-            reasons.add("Your primary occupation (" + profile.getPrimaryOccupation() + ") is eligible.");
-        }
-
-        // 4. Age limits
-        if (criteria.getMinAge() != null || criteria.getMaxAge() != null) {
-            reasons.add("Your age falls within the required bracket for this scheme.");
-        }
-
-        // 5. Fallback
-        if (reasons.isEmpty()) {
-            reasons.add("You meet the baseline eligibility requirements for this scheme.");
-        }
-
-        return reasons;
+        return profile.getState() != null && jurisdiction.equalsIgnoreCase(profile.getState().trim());
     }
+
+    private int compliancePercentage(EligibilityEvaluation evaluation) {
+        // Every recorded applicable rule has been satisfied; this field is kept
+        // only for the current UI contract.  Consumers should use
+        // eligibilityStatus for the decision itself.
+        return evaluation.isEligible() ? 100 : 0;
+    }
+
+    private record EvaluatedScheme(Scheme scheme, EligibilityEvaluation evaluation) { }
 
     // Helper method
     private SchemeResponse mapToResponse(Scheme scheme) {
-        return new SchemeResponse(
-                scheme.getId(),
-                scheme.getName(),
-                scheme.getDescription(),
-                scheme.getEligibilityCriteria()
-        );
+        return SchemeResponse.builder()
+                .id(scheme.getId())
+                .name(scheme.getName())
+                .description(scheme.getDescription())
+                .state(scheme.getState())
+                .department(scheme.getDepartment())
+                .officialUrl(scheme.getOfficialUrl())
+                .sourceName(scheme.getSourceName())
+                .lastVerifiedAt(scheme.getLastVerifiedAt())
+                .benefits(scheme.getBenefits())
+                .requiredDocuments(scheme.getRequiredDocuments())
+                .status(scheme.getStatus())
+                .publishedAt(scheme.getPublishedAt())
+                .archivedAt(scheme.getArchivedAt())
+                .updatedAt(scheme.getUpdatedAt())
+                .eligibilityCriteria(scheme.getEligibilityCriteria())
+                .build();
     }
 }
