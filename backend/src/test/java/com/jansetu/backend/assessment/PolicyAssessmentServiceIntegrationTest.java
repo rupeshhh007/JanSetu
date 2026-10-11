@@ -20,6 +20,10 @@ import com.jansetu.backend.scheme.entity.EligibilityCriteria;
 import com.jansetu.backend.scheme.entity.Scheme;
 import com.jansetu.backend.scheme.entity.SchemeStatus;
 import com.jansetu.backend.scheme.repository.SchemeRepository;
+import com.jansetu.backend.source.OfficialSource;
+import com.jansetu.backend.source.OfficialSourceRepository;
+import com.jansetu.backend.source.SourceSnapshot;
+import com.jansetu.backend.source.SourceSnapshotRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,11 +51,14 @@ class PolicyAssessmentServiceIntegrationTest {
     @Autowired private SchemeRepository schemes;
     @Autowired private UserRepository users;
     @Autowired private CitizenProfileRepository profiles;
+    @Autowired private OfficialSourceRepository sources;
+    @Autowired private SourceSnapshotRepository snapshots;
     @Autowired private EntityManager entityManager;
 
     private User citizen;
     private User otherCitizen;
     private UUID schemeId;
+    private OfficialSource source;
 
     @BeforeEach
     void setUp() {
@@ -66,6 +74,12 @@ class PolicyAssessmentServiceIntegrationTest {
         scheme.setBenefits(List.of());
         scheme.setRequiredDocuments(List.of());
         schemeId = schemes.saveAndFlush(scheme).getId();
+        source = new OfficialSource();
+        source.setName("MahaDBT fixture");
+        source.setAuthority("Government of Maharashtra");
+        source.setCanonicalUrl("https://mahadbt.maharashtra.gov.in/scheme/example");
+        source.setNormalizedHost("mahadbt.maharashtra.gov.in");
+        source = sources.saveAndFlush(source);
         publish(LocalDate.of(2026, 1, 1), true);
     }
 
@@ -100,12 +114,27 @@ class PolicyAssessmentServiceIntegrationTest {
                 new PolicyVersionCreateCommand(effectiveFrom,
                         new BooleanMatchRule("student-status", "Recorded student requirement", FactKey.IS_STUDENT,
                                 expectedStudent),
-                        List.of(new PolicySourceReference("https://mahadbt.maharashtra.gov.in/scheme/example",
-                                "MahaDBT fixture", "sha256:fixture-" + effectiveFrom,
-                                "Recorded requirement excerpt."))));
+                        List.of(sourceReference(effectiveFrom))));
         policyVersions.submitForReview(schemeId, draft.getId());
         policyVersions.approve(schemeId, draft.getId());
         policyVersions.publish(schemeId, draft.getId());
+    }
+
+    private PolicySourceReference sourceReference(LocalDate effectiveFrom) {
+        String marker = "fixture-" + effectiveFrom;
+        SourceSnapshot snapshot = new SourceSnapshot();
+        snapshot.setSource(source);
+        snapshot.setSourceNameAtCapture(source.getName());
+        snapshot.setSourceUrlAtCapture(source.getCanonicalUrl());
+        snapshot.setContentType("text/plain");
+        snapshot.setHttpStatus(200);
+        snapshot.setContentLength(marker.length());
+        snapshot.setContentHash("sha256:" + marker);
+        snapshot.setContentExcerpt("Recorded requirement excerpt.");
+        snapshot.setContentBytes(marker.getBytes());
+        snapshot.setCapturedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        snapshot = snapshots.saveAndFlush(snapshot);
+        return new PolicySourceReference(snapshot.getId(), null, null, null, null);
     }
 
     private User createCitizen(String email, boolean student) {

@@ -8,6 +8,10 @@ import com.jansetu.backend.scheme.entity.EligibilityCriteria;
 import com.jansetu.backend.scheme.entity.Scheme;
 import com.jansetu.backend.scheme.entity.SchemeStatus;
 import com.jansetu.backend.scheme.repository.SchemeRepository;
+import com.jansetu.backend.source.OfficialSource;
+import com.jansetu.backend.source.OfficialSourceRepository;
+import com.jansetu.backend.source.SourceSnapshot;
+import com.jansetu.backend.source.SourceSnapshotRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,6 +42,10 @@ class PolicyVersionControllerIntegrationTest {
     private ObjectMapper objectMapper;
     @Autowired
     private SchemeRepository schemes;
+    @Autowired
+    private OfficialSourceRepository sources;
+    @Autowired
+    private SourceSnapshotRepository snapshots;
 
     private UUID schemeId;
     private PolicyVersionRequest request;
@@ -53,10 +62,27 @@ class PolicyVersionControllerIntegrationTest {
         scheme.setBenefits(List.of());
         scheme.setRequiredDocuments(List.of());
         schemeId = schemes.saveAndFlush(scheme).getId();
+        OfficialSource source = new OfficialSource();
+        source.setName("MahaDBT fixture");
+        source.setAuthority("Government of Maharashtra");
+        source.setCanonicalUrl("https://mahadbt.maharashtra.gov.in/scheme/example");
+        source.setNormalizedHost("mahadbt.maharashtra.gov.in");
+        source = sources.saveAndFlush(source);
+        SourceSnapshot snapshot = new SourceSnapshot();
+        snapshot.setSource(source);
+        snapshot.setSourceNameAtCapture(source.getName());
+        snapshot.setSourceUrlAtCapture(source.getCanonicalUrl());
+        snapshot.setContentType("text/plain");
+        snapshot.setHttpStatus(200);
+        snapshot.setContentLength(15);
+        snapshot.setContentHash("sha256:fixture-content");
+        snapshot.setContentExcerpt("Recorded requirement excerpt.");
+        snapshot.setContentBytes("fixture content".getBytes());
+        snapshot.setCapturedAt(Instant.parse("2026-10-01T00:00:00Z"));
+        snapshot = snapshots.saveAndFlush(snapshot);
         request = new PolicyVersionRequest(LocalDate.of(2026, 10, 1),
                 new BooleanMatchRule("student-rule", "Recorded student requirement", FactKey.IS_STUDENT, true),
-                List.of(new PolicySourceReference("https://mahadbt.maharashtra.gov.in/scheme/example",
-                        "MahaDBT fixture", "sha256:fixture-content", "Recorded requirement excerpt.")));
+                List.of(new PolicySourceReference(snapshot.getId(), null, null, null, null)));
     }
 
     @Test
@@ -75,6 +101,7 @@ class PolicyVersionControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("DRAFT"))
                 .andExpect(jsonPath("$.versionNumber").value(1))
                 .andExpect(jsonPath("$.policyRule.type").value("booleanMatch"))
+                .andExpect(jsonPath("$.sourceReferences[0].snapshotId").exists())
                 .andExpect(jsonPath("$.sourceReferences[0].contentHash").value("sha256:fixture-content"));
     }
 

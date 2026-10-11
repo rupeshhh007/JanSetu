@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -21,26 +20,28 @@ public class PolicyVersionService {
     private final PolicyVersionRepository policyVersions;
     private final SchemeRepository schemes;
     private final PolicyRuleValidator validator;
+    private final PolicyEvidenceResolver policyEvidence;
     private final Clock clock;
 
     @Autowired
     public PolicyVersionService(PolicyVersionRepository policyVersions, SchemeRepository schemes,
-                                PolicyRuleValidator validator) {
-        this(policyVersions, schemes, validator, Clock.systemUTC());
+                                PolicyRuleValidator validator, PolicyEvidenceResolver policyEvidence) {
+        this(policyVersions, schemes, validator, policyEvidence, Clock.systemUTC());
     }
 
     PolicyVersionService(PolicyVersionRepository policyVersions, SchemeRepository schemes,
-                         PolicyRuleValidator validator, Clock clock) {
+                         PolicyRuleValidator validator, PolicyEvidenceResolver policyEvidence, Clock clock) {
         this.policyVersions = policyVersions;
         this.schemes = schemes;
         this.validator = validator;
+        this.policyEvidence = policyEvidence;
         this.clock = clock;
     }
 
     @Transactional
     public PolicyVersion createDraft(UUID schemeId, PolicyVersionCreateCommand command) {
         validator.validateOrThrow(command.policyRule());
-        validateSourceReferences(command.sourceReferences());
+        List<PolicySourceReference> sourceReferences = policyEvidence.resolve(command.sourceReferences());
         if (command.effectiveFrom() == null) {
             throw new PolicyLifecycleException("An effective date is required for a policy version.");
         }
@@ -55,7 +56,7 @@ public class PolicyVersionService {
         version.setEffectiveFrom(command.effectiveFrom());
         version.setRecordedAt(Instant.now(clock));
         version.setPolicyRule(command.policyRule());
-        version.setSourceReferences(command.sourceReferences());
+        version.setSourceReferences(sourceReferences);
         return policyVersions.save(version);
     }
 
@@ -128,25 +129,4 @@ public class PolicyVersionService {
         version.setStatus(next);
     }
 
-    private void validateSourceReferences(List<PolicySourceReference> sourceReferences) {
-        if (sourceReferences.isEmpty()) {
-            throw new PolicyLifecycleException("At least one official source reference is required for a policy version.");
-        }
-        for (PolicySourceReference source : sourceReferences) {
-            if (source == null || source.sourceUrl() == null || source.sourceUrl().isBlank()
-                    || source.sourceTitle() == null || source.sourceTitle().isBlank()
-                    || source.contentHash() == null || source.contentHash().isBlank()) {
-                throw new PolicyLifecycleException("Every source reference needs a URL, title, and content hash.");
-            }
-            URI uri;
-            try {
-                uri = URI.create(source.sourceUrl());
-            } catch (IllegalArgumentException exception) {
-                throw new PolicyLifecycleException("Policy source URLs must be valid HTTP or HTTPS URLs.");
-            }
-            if (!"https".equalsIgnoreCase(uri.getScheme()) && !"http".equalsIgnoreCase(uri.getScheme())) {
-                throw new PolicyLifecycleException("Policy source URLs must use HTTP or HTTPS.");
-            }
-        }
-    }
 }
