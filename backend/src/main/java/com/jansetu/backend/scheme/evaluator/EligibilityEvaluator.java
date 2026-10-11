@@ -1,20 +1,55 @@
 package com.jansetu.backend.scheme.evaluator;
 
+import com.jansetu.backend.policy.domain.FactKey;
+import com.jansetu.backend.policy.domain.PolicyResult;
+import com.jansetu.backend.policy.evaluation.PolicyEvaluation;
+import com.jansetu.backend.policy.evaluation.PolicyEvaluationContext;
+import com.jansetu.backend.policy.evaluation.PolicyEvaluationEngine;
+import com.jansetu.backend.policy.evaluation.PolicyEvaluationTrace;
 import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.profile.policy.CitizenProfilePolicyFacts;
 import com.jansetu.backend.scheme.entity.EligibilityCriteria;
+import com.jansetu.backend.scheme.entity.Scheme;
+import com.jansetu.backend.scheme.entity.SchemeStatus;
+import com.jansetu.backend.scheme.policy.LegacyEligibilityPolicyAdapter;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDate;
-import java.time.Period;
-import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Compatibility boundary for the original catalogue. It delegates all
+ * criterion evaluation to the typed policy engine while retaining citizen-safe
+ * explanatory copy for the current API contract.
+ */
 @Component
 public class EligibilityEvaluator {
+    private final PolicyEvaluationEngine policyEngine;
+    private final LegacyEligibilityPolicyAdapter legacyPolicyAdapter;
+    private final Clock clock;
 
-    /** Shared jurisdiction and publication checks for discovery, chat and submission. */
-    public EligibilityEvaluation evaluateScheme(CitizenProfile profile, com.jansetu.backend.scheme.entity.Scheme scheme) {
-        if (scheme.getStatus() != com.jansetu.backend.scheme.entity.SchemeStatus.PUBLISHED) {
+    public EligibilityEvaluator(PolicyEvaluationEngine policyEngine,
+                                LegacyEligibilityPolicyAdapter legacyPolicyAdapter) {
+        this(policyEngine, legacyPolicyAdapter, Clock.systemUTC());
+    }
+
+    EligibilityEvaluator(PolicyEvaluationEngine policyEngine,
+                         LegacyEligibilityPolicyAdapter legacyPolicyAdapter,
+                         Clock clock) {
+        this.policyEngine = policyEngine;
+        this.legacyPolicyAdapter = legacyPolicyAdapter;
+        this.clock = clock;
+    }
+
+    /** Retained for existing plain unit tests. */
+    public EligibilityEvaluator() {
+        this(new PolicyEvaluationEngine(), new LegacyEligibilityPolicyAdapter(), Clock.systemUTC());
+    }
+
+    /** Shared publication and jurisdiction checks for discovery and preparation. */
+    public EligibilityEvaluation evaluateScheme(CitizenProfile profile, Scheme scheme) {
+        if (scheme.getStatus() != SchemeStatus.PUBLISHED) {
             return new EligibilityEvaluation(EligibilityOutcome.NOT_ELIGIBLE, List.of(),
                     List.of("This scheme is not currently published."), List.of(), 0);
         }
@@ -35,124 +70,75 @@ public class EligibilityEvaluator {
         return evaluate(profile, criteria).isEligible();
     }
 
-    /**
-     * Evaluates only the rules recorded in JanSetu.  A missing profile value is
-     * never silently treated as a match; it becomes a follow-up requirement.
-     */
+    /** Uses today's UTC date only for the legacy live-catalogue flow. */
     public EligibilityEvaluation evaluate(CitizenProfile profile, EligibilityCriteria criteria) {
+        return evaluate(profile, criteria, LocalDate.now(clock));
+    }
 
-        List<String> matched = new ArrayList<>();
-        List<String> unmet = new ArrayList<>();
-        List<String> missing = new ArrayList<>();
-        int evaluatedRules = 0;
-
-        if (criteria == null) {
-            return new EligibilityEvaluation(
-                    EligibilityOutcome.NEEDS_INFORMATION,
-                    matched,
-                    unmet,
-                    List.of("The scheme's eligibility rules have not been recorded yet."),
-                    evaluatedRules
-            );
+    /** Uses an explicit date so a recorded assessment can be replayed later. */
+    public EligibilityEvaluation evaluate(CitizenProfile profile, EligibilityCriteria criteria, LocalDate evaluationDate) {
+        var policy = legacyPolicyAdapter.toPolicy(criteria);
+        if (policy == null) {
+            return new EligibilityEvaluation(EligibilityOutcome.NEEDS_INFORMATION, List.of(), List.of(),
+                    List.of("The scheme's eligibility rules have not been recorded yet."), 0);
         }
 
-        // 1. Age Check
-        if (criteria.getMinAge() != null || criteria.getMaxAge() != null) {
-            evaluatedRules++;
-            if (profile.getDateOfBirth() == null) {
-                missing.add("Date of birth is needed to check the age requirement.");
-            } else {
-                int age = Period.between(profile.getDateOfBirth(), LocalDate.now()).getYears();
-                if (criteria.getMinAge() != null && age < criteria.getMinAge()) {
-                    unmet.add("You must be at least " + criteria.getMinAge() + " years old.");
-                } else if (criteria.getMaxAge() != null && age > criteria.getMaxAge()) {
-                    unmet.add("You must be " + criteria.getMaxAge() + " years old or younger.");
-                } else {
-                    matched.add("Your age meets the recorded requirement.");
-                }
-            }
-        }
+        PolicyEvaluation evaluation = policyEngine.evaluate(policy,
+                new PolicyEvaluationContext(CitizenProfilePolicyFacts.from(profile), evaluationDate));
+        List<PolicyEvaluationTrace> leaves = leafTraces(evaluation.trace());
+        List<String> matched = leaves.stream().filter(trace -> trace.result() == PolicyResult.SATISFIED)
+                .map(this::messageForSatisfied).toList();
+        List<String> unmet = leaves.stream().filter(trace -> trace.result() == PolicyResult.FAILED)
+                .map(this::messageForFailed).toList();
+        List<String> missing = evaluation.missingFacts().stream().map(this::messageForMissing).toList();
+        EligibilityOutcome outcome = switch (evaluation.result()) {
+            case SATISFIED -> EligibilityOutcome.ELIGIBLE;
+            case FAILED -> EligibilityOutcome.NOT_ELIGIBLE;
+            case UNKNOWN, NOT_APPLICABLE -> EligibilityOutcome.NEEDS_INFORMATION;
+        };
+        return new EligibilityEvaluation(outcome, matched, unmet, missing, leaves.size(), evaluation.trace());
+    }
 
-        // 2. Income Check
-        if (criteria.getMaxFamilyIncome() != null) {
-            evaluatedRules++;
-            if (profile.getAnnualFamilyIncome() == null) {
-                missing.add("Annual family income is needed to check the income limit.");
-            } else if (profile.getAnnualFamilyIncome().compareTo(criteria.getMaxFamilyIncome()) > 0) {
-                unmet.add("Annual family income must not exceed ₹"
-                        + criteria.getMaxFamilyIncome().toPlainString() + ".");
-            } else {
-                matched.add("Your recorded family income is within the scheme's limit.");
-            }
+    private List<PolicyEvaluationTrace> leafTraces(PolicyEvaluationTrace trace) {
+        if (trace.children().isEmpty()) {
+            return List.of(trace);
         }
+        return trace.children().stream().flatMap(child -> leafTraces(child).stream()).toList();
+    }
 
-        // 3. Category Check
-        if (criteria.getRequiredCategories() != null && !criteria.getRequiredCategories().isEmpty()) {
-            evaluatedRules++;
-            if (profile.getCategory() == null) {
-                missing.add("Social category is needed to check this scheme requirement.");
-            } else if (!criteria.getRequiredCategories().contains(profile.getCategory())) {
-                unmet.add("This scheme is recorded for specific social categories.");
-            } else {
-                matched.add("Your recorded social category is included in the scheme rules.");
-            }
-        }
+    private String messageForSatisfied(PolicyEvaluationTrace trace) {
+        return switch (trace.ruleId()) {
+            case "legacy-age" -> "Your age meets the recorded requirement.";
+            case "legacy-income" -> "Your recorded family income is within the scheme's limit.";
+            case "legacy-category" -> "Your recorded social category is included in the scheme rules.";
+            case "legacy-occupation" -> "Your recorded occupation is included in the scheme rules.";
+            case "legacy-student" -> "You are recorded as a student.";
+            case "legacy-farmer" -> "You are recorded as a farmer.";
+            case "legacy-disability" -> "You are recorded as a person with a disability.";
+            default -> trace.label() + " is satisfied.";
+        };
+    }
 
-        // 4. Occupation Check
-        if (criteria.getAllowedOccupations() != null && !criteria.getAllowedOccupations().isEmpty()) {
-            evaluatedRules++;
-            if (profile.getPrimaryOccupation() == null) {
-                missing.add("Primary occupation is needed to check this scheme requirement.");
-            } else if (!criteria.getAllowedOccupations().contains(profile.getPrimaryOccupation())) {
-                unmet.add("Your recorded occupation is not among this scheme's listed occupations.");
-            } else {
-                matched.add("Your recorded occupation is included in the scheme rules.");
-            }
-        }
+    private String messageForFailed(PolicyEvaluationTrace trace) {
+        return switch (trace.ruleId()) {
+            case "legacy-age" -> "Your recorded age does not meet this scheme's requirement.";
+            case "legacy-income" -> "Annual family income is above this scheme's recorded limit.";
+            case "legacy-category" -> "This scheme is recorded for specific social categories.";
+            case "legacy-occupation" -> "Your recorded occupation is not among this scheme's listed occupations.";
+            case "legacy-student" -> "This scheme requires the applicant to be a student.";
+            case "legacy-farmer" -> "This scheme requires the applicant to be a farmer.";
+            case "legacy-disability" -> "This scheme requires the applicant to have a disability.";
+            default -> trace.label() + " is not satisfied.";
+        };
+    }
 
-        // 5. Boolean Flag Checks
-        if (Boolean.TRUE.equals(criteria.getRequiresStudent())) {
-            evaluatedRules++;
-            if (profile.isStudent()) {
-                matched.add("You are recorded as a student.");
-            } else {
-                unmet.add("This scheme requires the applicant to be a student.");
-            }
-        }
-
-        if (Boolean.TRUE.equals(criteria.getRequiresFarmer())) {
-            evaluatedRules++;
-            if (profile.isFarmer()) {
-                matched.add("You are recorded as a farmer.");
-            } else {
-                unmet.add("This scheme requires the applicant to be a farmer.");
-            }
-        }
-
-        if (Boolean.TRUE.equals(criteria.getRequiresDisability())) {
-            evaluatedRules++;
-            if (profile.isHasDisability()) {
-                matched.add("You are recorded as a person with a disability.");
-            } else {
-                unmet.add("This scheme requires the applicant to have a disability.");
-            }
-        }
-
-        if (!unmet.isEmpty()) {
-            return new EligibilityEvaluation(EligibilityOutcome.NOT_ELIGIBLE, matched, unmet, missing, evaluatedRules);
-        }
-        if (!missing.isEmpty()) {
-            return new EligibilityEvaluation(EligibilityOutcome.NEEDS_INFORMATION, matched, unmet, missing, evaluatedRules);
-        }
-        if (evaluatedRules == 0) {
-            return new EligibilityEvaluation(
-                    EligibilityOutcome.NEEDS_INFORMATION,
-                    matched,
-                    unmet,
-                    List.of("The scheme's eligibility rules have not been recorded yet."),
-                    evaluatedRules
-            );
-        }
-        return new EligibilityEvaluation(EligibilityOutcome.ELIGIBLE, matched, unmet, missing, evaluatedRules);
+    private String messageForMissing(FactKey fact) {
+        return switch (fact) {
+            case BIRTH_DATE -> "Date of birth is needed to check the age requirement.";
+            case ANNUAL_FAMILY_INCOME -> "Annual family income is needed to check the income limit.";
+            case CATEGORY -> "Social category is needed to check this scheme requirement.";
+            case PRIMARY_OCCUPATION -> "Primary occupation is needed to check this scheme requirement.";
+            default -> fact.displayName() + " is needed to check the recorded requirements.";
+        };
     }
 }
