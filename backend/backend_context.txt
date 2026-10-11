@@ -244,7 +244,7 @@ spring.mvc.pathmatch.matching-strategy=ant_path_matcher
 
 
 
-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
+${GROQ_API_KEY}
 # Groq Configuration (Using OpenAI Compatibility)
 
 # Groq via OpenAI Compatibility
