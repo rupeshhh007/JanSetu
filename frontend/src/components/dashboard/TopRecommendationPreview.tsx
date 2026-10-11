@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, CircleAlert, ShieldCheck, Sparkles } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -17,8 +17,10 @@ export function TopRecommendationPreview({
   recommendations,
 }: TopRecommendationPreviewProps) {
   const top = [...recommendations].sort(
-    (a, b) => b.matchPercentage - a.matchPercentage
+    (a, b) => b.evidenceScore - a.evidenceScore
   )[0];
+  const isReady = top?.recommendationState === "READY_TO_REVIEW";
+  const reasons = top && isReady ? top.matchedCriteria : top?.missingInformation ?? [];
 
   return (
     <Card
@@ -38,7 +40,7 @@ export function TopRecommendationPreview({
             <Sparkles className="size-3.5" aria-hidden="true" />
           </span>
           <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            AI-matched for you
+            Recorded policy check
           </p>
         </div>
 
@@ -57,10 +59,10 @@ export function TopRecommendationPreview({
 
               <div className="flex shrink-0 flex-col items-end">
                 <span className="text-2xl font-bold tabular-nums text-success">
-                  {top.matchPercentage}%
+                  {top.evidenceScore}%
                 </span>
                 <span className="text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
-                  match
+                  evidence
                 </span>
               </div>
             </div>
@@ -69,20 +71,28 @@ export function TopRecommendationPreview({
               {top.scheme.description}
             </p>
 
-            {top.matchedCriteria.length > 0 && (
+            {reasons.length > 0 && (
               <ul className="space-y-1.5 border-t border-border pt-3">
-                {top.matchedCriteria.slice(0, 2).map((criterion) => (
-                  <li
-                    key={criterion}
-                    className="flex items-start gap-2 text-xs text-muted-foreground"
-                  >
-                    <ShieldCheck
-                      className="mt-0.5 size-3.5 shrink-0 text-success"
-                      aria-hidden="true"
-                    />
-                    <span>{criterion}</span>
-                  </li>
-                ))}
+                {reasons.slice(0, 2)
+                  .map((criterion) => (
+                    <li
+                      key={criterion}
+                      className="flex items-start gap-2 text-xs text-muted-foreground"
+                    >
+                      {isReady ? (
+                        <ShieldCheck
+                          className="mt-0.5 size-3.5 shrink-0 text-success"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <CircleAlert
+                          className="mt-0.5 size-3.5 shrink-0 text-warning"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span>{criterion}</span>
+                    </li>
+                  ))}
               </ul>
             )}
           </div>

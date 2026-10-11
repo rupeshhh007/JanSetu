@@ -86,10 +86,10 @@ profile. Do not infer or request sensitive attributes. Their recorded state is:
         if (recommendations.isEmpty()) {
             return """
 ========================
-ELIGIBLE SCHEMES
+RECORDED RECOMMENDATION EVIDENCE
 ========================
 
-No eligible schemes found.
+No schemes have recorded recommendation evidence for this profile.
 """;
         }
 
@@ -97,7 +97,7 @@ No eligible schemes found.
 
         builder.append("""
 ========================
-ELIGIBLE SCHEMES
+RECORDED RECOMMENDATION EVIDENCE
 ========================
 
 """);
@@ -111,16 +111,33 @@ ELIGIBLE SCHEMES
                     .append(recommendation.getScheme().getName())
                     .append("\n");
 
-            builder.append("Match: ")
-                    .append(recommendation.getMatchPercentage())
-                    .append("%\n");
+            builder.append("State: ")
+                    .append(recommendation.getRecommendationState())
+                    .append("\n")
+                    .append("Recorded evidence: ")
+                    .append(recommendation.getEvidenceScore())
+                    .append("% across ")
+                    .append(recommendation.getRecordedRuleCount())
+                    .append(" recorded rules\n");
 
-            builder.append("Reasons:\n");
+            builder.append("Recorded details:\n");
 
             for (String reason : recommendation.getMatchedCriteria()) {
 
                 builder.append("- ")
                         .append(reason)
+                        .append("\n");
+            }
+
+            for (String detail : recommendation.getMissingInformation()) {
+                builder.append("- Information needed: ")
+                        .append(detail)
+                        .append("\n");
+            }
+
+            for (String detail : recommendation.getUnmetCriteria()) {
+                builder.append("- Not supported by the recorded profile: ")
+                        .append(detail)
                         .append("\n");
             }
 
