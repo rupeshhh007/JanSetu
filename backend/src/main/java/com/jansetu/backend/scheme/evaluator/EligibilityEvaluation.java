@@ -1,5 +1,7 @@
 package com.jansetu.backend.scheme.evaluator;
 
+import com.jansetu.backend.policy.evaluation.PolicyEvaluationTrace;
+
 import java.util.List;
 
 /**
@@ -11,8 +13,15 @@ public record EligibilityEvaluation(
         List<String> matchedCriteria,
         List<String> unmetCriteria,
         List<String> missingInformation,
-        int evaluatedRuleCount
+        int evaluatedRuleCount,
+        PolicyEvaluationTrace trace
 ) {
+    public EligibilityEvaluation(EligibilityOutcome outcome, List<String> matchedCriteria,
+                                 List<String> unmetCriteria, List<String> missingInformation,
+                                 int evaluatedRuleCount) {
+        this(outcome, matchedCriteria, unmetCriteria, missingInformation, evaluatedRuleCount, null);
+    }
+
     public boolean isEligible() {
         return outcome == EligibilityOutcome.ELIGIBLE;
     }

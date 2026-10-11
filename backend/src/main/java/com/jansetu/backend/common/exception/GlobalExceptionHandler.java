@@ -5,6 +5,12 @@ import com.jansetu.backend.common.dto.ErrorResponse;
 import com.jansetu.backend.profile.exception.ProfileNotFoundException;
 import com.jansetu.backend.scheme.exception.SchemeNotFoundException;
 import com.jansetu.backend.scheme.exception.SchemePublicationException;
+import com.jansetu.backend.policy.registry.PolicyLifecycleException;
+import com.jansetu.backend.policy.registry.PolicyVersionNotFoundException;
+import com.jansetu.backend.policy.validation.InvalidPolicyException;
+import com.jansetu.backend.assessment.AssessmentNotFoundException;
+import com.jansetu.backend.source.OfficialSourceNotFoundException;
+import com.jansetu.backend.source.SourceIntakeException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -42,14 +48,16 @@ public class GlobalExceptionHandler {
     }
 
     // Handle Not Found exceptions (404)
-    @ExceptionHandler({ProfileNotFoundException.class, SchemeNotFoundException.class, ApplicationNotFoundException.class})
+    @ExceptionHandler({ProfileNotFoundException.class, SchemeNotFoundException.class, ApplicationNotFoundException.class,
+            PolicyVersionNotFoundException.class, AssessmentNotFoundException.class, OfficialSourceNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(BusinessException ex) {
         return buildResponse(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage());
     }
 
     // Handle Conflict exceptions (409)
-    @ExceptionHandler(DuplicateApplicationException.class)
-    public ResponseEntity<ErrorResponse> handleConflict(DuplicateApplicationException ex) {
+    @ExceptionHandler({DuplicateApplicationException.class, InvalidApplicationStatusTransitionException.class,
+            PolicyLifecycleException.class})
+    public ResponseEntity<ErrorResponse> handleConflict(BusinessException ex) {
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 
@@ -59,15 +67,19 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
     }
 
+    @ExceptionHandler(SourceIntakeException.class)
+    public ResponseEntity<ErrorResponse> handleSourceIntake(SourceIntakeException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Source Intake Rejected", ex.getMessage());
+    }
+
     @ExceptionHandler(SchemePublicationException.class)
     public ResponseEntity<ErrorResponse> handleSchemePublication(SchemePublicationException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Scheme Is Not Ready To Publish", ex.getMessage());
     }
 
-    @ExceptionHandler(InvalidApplicationStatusTransitionException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidStatusTransition(
-            InvalidApplicationStatusTransitionException ex) {
-        return buildResponse(HttpStatus.CONFLICT, "Invalid Application Status Transition", ex.getMessage());
+    @ExceptionHandler(InvalidPolicyException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPolicy(InvalidPolicyException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Invalid Policy", ex.getMessage());
     }
 
     // Handle Validation Errors (400)
