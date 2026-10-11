@@ -1,6 +1,7 @@
 package com.jansetu.backend.auth.security;
 
 import com.jansetu.backend.auth.service.JwtService;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,28 +46,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 3. Extract the token (Remove "Bearer " from the string)
-        jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt);
+        try {
+            // 3. Extract the token (Remove "Bearer " from the string)
+            jwt = authHeader.substring(7);
+            userEmail = jwtService.extractUsername(jwt);
 
-        // 4. If we found an email, and the user isn't already authenticated in this session...
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            // 4. If we found an email, and the user isn't already authenticated in this session...
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            // Load the user from the database
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                // Load the user from the database
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // 5. If the token is valid, formally authenticate them with Spring Security
-            if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                // This is the VIP list update. We tell Spring: "This user is logged in!"
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                // 5. If the token is valid, formally authenticate them with Spring Security
+                if (userDetails.isEnabled() && userDetails.isAccountNonLocked() &&
+                        userDetails.isAccountNonExpired() && userDetails.isCredentialsNonExpired() &&
+                        jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (JwtException | IllegalArgumentException | org.springframework.security.core.userdetails.UsernameNotFoundException ex) {
+            SecurityContextHolder.clearContext();
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired access token");
+            return;
         }
 
         // 6. Continue to the next filter in the chain (or the controller)
