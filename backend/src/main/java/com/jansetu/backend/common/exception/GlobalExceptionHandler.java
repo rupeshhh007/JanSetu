@@ -9,6 +9,8 @@ import com.jansetu.backend.policy.registry.PolicyLifecycleException;
 import com.jansetu.backend.policy.registry.PolicyVersionNotFoundException;
 import com.jansetu.backend.policy.validation.InvalidPolicyException;
 import com.jansetu.backend.assessment.AssessmentNotFoundException;
+import com.jansetu.backend.source.OfficialSourceNotFoundException;
+import com.jansetu.backend.source.SourceIntakeException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +49,7 @@ public class GlobalExceptionHandler {
 
     // Handle Not Found exceptions (404)
     @ExceptionHandler({ProfileNotFoundException.class, SchemeNotFoundException.class, ApplicationNotFoundException.class,
-            PolicyVersionNotFoundException.class, AssessmentNotFoundException.class})
+            PolicyVersionNotFoundException.class, AssessmentNotFoundException.class, OfficialSourceNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(BusinessException ex) {
         return buildResponse(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage());
     }
@@ -63,6 +65,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IneligibleException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(IneligibleException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
+    @ExceptionHandler(SourceIntakeException.class)
+    public ResponseEntity<ErrorResponse> handleSourceIntake(SourceIntakeException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Source Intake Rejected", ex.getMessage());
     }
 
     @ExceptionHandler(SchemePublicationException.class)
