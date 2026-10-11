@@ -4,6 +4,8 @@ import com.jansetu.backend.profile.entity.Category;
 import com.jansetu.backend.profile.entity.CitizenProfile;
 import com.jansetu.backend.profile.entity.Occupation;
 import com.jansetu.backend.scheme.entity.EligibilityCriteria;
+import com.jansetu.backend.scheme.evaluator.EligibilityEvaluation;
+import com.jansetu.backend.scheme.evaluator.EligibilityOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -69,10 +71,42 @@ class EligibilityEvaluatorTest {
     }
 
     @Test
-    void shouldReturnTrueWhenCriteriaAreNull() {
-        // If criteria fields are null, they should be ignored (the rule is not enforced)
+    void shouldRequestInformationWhenNoRulesAreRecorded() {
         EligibilityCriteria criteria = new EligibilityCriteria();
 
-        assertTrue(evaluator.isEligible(profile, criteria));
+        EligibilityEvaluation result = evaluator.evaluate(profile, criteria);
+
+        assertEquals(EligibilityOutcome.NEEDS_INFORMATION, result.outcome());
+        assertFalse(result.isEligible());
+        assertTrue(result.missingInformation().getFirst().contains("not been recorded"));
+    }
+
+    @Test
+    void shouldReturnExplainableOutcomeWithEveryMatchedRule() {
+        EligibilityCriteria criteria = new EligibilityCriteria();
+        criteria.setMinAge(18);
+        criteria.setMaxFamilyIncome(new BigDecimal("250000"));
+        criteria.setRequiredCategories(List.of(Category.SC));
+        criteria.setRequiresStudent(true);
+
+        EligibilityEvaluation result = evaluator.evaluate(profile, criteria);
+
+        assertEquals(EligibilityOutcome.ELIGIBLE, result.outcome());
+        assertEquals(4, result.evaluatedRuleCount());
+        assertEquals(4, result.matchedCriteria().size());
+        assertTrue(result.unmetCriteria().isEmpty());
+    }
+
+    @Test
+    void shouldRequestMissingInformationInsteadOfAssumingEligibility() {
+        EligibilityCriteria criteria = new EligibilityCriteria();
+        criteria.setMaxFamilyIncome(new BigDecimal("250000"));
+        profile.setAnnualFamilyIncome(null);
+
+        EligibilityEvaluation result = evaluator.evaluate(profile, criteria);
+
+        assertEquals(EligibilityOutcome.NEEDS_INFORMATION, result.outcome());
+        assertTrue(result.missingInformation().getFirst().contains("income"));
+        assertFalse(result.isEligible());
     }
 }
