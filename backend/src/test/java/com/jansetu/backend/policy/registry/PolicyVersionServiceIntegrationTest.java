@@ -64,18 +64,28 @@ class PolicyVersionServiceIntegrationTest {
     void rejectsPublicationBeforeApprovalAndRejectsUnverifiedSourceReferences() {
         PolicyVersion draft = policyVersions.createDraft(schemeId, command(LocalDate.of(2026, 10, 1), true));
 
-        assertThrows(PolicyLifecycleException.class, () -> policyVersions.publish(draft.getId()));
+        assertThrows(PolicyLifecycleException.class, () -> policyVersions.publish(schemeId, draft.getId()));
         assertThrows(PolicyLifecycleException.class, () -> policyVersions.createDraft(schemeId,
                 new PolicyVersionCreateCommand(LocalDate.of(2026, 10, 1),
                         new BooleanMatchRule("student-rule", "Recorded student requirement", FactKey.IS_STUDENT, true),
                         List.of())));
     }
 
+    @Test
+    void doesNotMutateAPolicyWhenTheSchemePathDoesNotOwnIt() {
+        PolicyVersion draft = policyVersions.createDraft(schemeId, command(LocalDate.of(2026, 10, 1), true));
+
+        assertThrows(PolicyVersionNotFoundException.class,
+                () -> policyVersions.submitForReview(UUID.randomUUID(), draft.getId()));
+
+        assertEquals(PolicyVersionStatus.DRAFT, policyVersions.findForScheme(schemeId, draft.getId()).getStatus());
+    }
+
     private PolicyVersion publish(LocalDate effectiveFrom, boolean expectedStudent) {
         PolicyVersion draft = policyVersions.createDraft(schemeId, command(effectiveFrom, expectedStudent));
-        policyVersions.submitForReview(draft.getId());
-        policyVersions.approve(draft.getId());
-        return policyVersions.publish(draft.getId());
+        policyVersions.submitForReview(schemeId, draft.getId());
+        policyVersions.approve(schemeId, draft.getId());
+        return policyVersions.publish(schemeId, draft.getId());
     }
 
     private PolicyVersionCreateCommand command(LocalDate effectiveFrom, boolean expectedStudent) {

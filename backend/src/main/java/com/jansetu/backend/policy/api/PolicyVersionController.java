@@ -40,23 +40,16 @@ public class PolicyVersionController {
 
     @PostMapping("/{policyVersionId}/submit-review")
     public PolicyVersionResponse submitForReview(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId) {
-        return responseForScheme(schemeId, policyVersions.submitForReview(policyVersionId));
+        return PolicyVersionResponse.from(policyVersions.submitForReview(schemeId, policyVersionId));
     }
 
     @PostMapping("/{policyVersionId}/approve")
     public PolicyVersionResponse approve(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId) {
-        return responseForScheme(schemeId, policyVersions.approve(policyVersionId));
+        return PolicyVersionResponse.from(policyVersions.approve(schemeId, policyVersionId));
     }
 
     @PostMapping("/{policyVersionId}/publish")
     public PolicyVersionResponse publish(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId) {
-        return responseForScheme(schemeId, policyVersions.publish(policyVersionId));
-    }
-
-    private PolicyVersionResponse responseForScheme(UUID schemeId, com.jansetu.backend.policy.registry.PolicyVersion version) {
-        if (!version.getScheme().getId().equals(schemeId)) {
-            throw new com.jansetu.backend.policy.registry.PolicyVersionNotFoundException("Policy version not found for scheme");
-        }
-        return PolicyVersionResponse.from(version);
+        return PolicyVersionResponse.from(policyVersions.publish(schemeId, policyVersionId));
     }
 }

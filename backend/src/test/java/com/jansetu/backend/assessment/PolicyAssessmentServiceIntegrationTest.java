@@ -103,9 +103,9 @@ class PolicyAssessmentServiceIntegrationTest {
                         List.of(new PolicySourceReference("https://mahadbt.maharashtra.gov.in/scheme/example",
                                 "MahaDBT fixture", "sha256:fixture-" + effectiveFrom,
                                 "Recorded requirement excerpt."))));
-        policyVersions.submitForReview(draft.getId());
-        policyVersions.approve(draft.getId());
-        policyVersions.publish(draft.getId());
+        policyVersions.submitForReview(schemeId, draft.getId());
+        policyVersions.approve(schemeId, draft.getId());
+        policyVersions.publish(schemeId, draft.getId());
     }
 
     private User createCitizen(String email, boolean student) {

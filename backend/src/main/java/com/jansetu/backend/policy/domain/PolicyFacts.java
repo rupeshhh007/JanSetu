@@ -82,12 +82,19 @@ public final class PolicyFacts {
             return switch (fact.fact().valueType()) {
                 case DECIMAL -> new BigDecimal(fact.value());
                 case DATE -> LocalDate.parse(fact.value());
-                case BOOLEAN -> Boolean.parseBoolean(fact.value());
+                case BOOLEAN -> parseBoolean(fact);
                 case TEXT -> fact.value();
             };
         } catch (RuntimeException exception) {
             throw new IllegalArgumentException("Invalid snapshot value for " + fact.fact(), exception);
         }
+    }
+
+    private static Boolean parseBoolean(PolicyFactSnapshot fact) {
+        if (!"true".equals(fact.value()) && !"false".equals(fact.value())) {
+            throw new IllegalArgumentException("Invalid boolean snapshot value for " + fact.fact());
+        }
+        return Boolean.parseBoolean(fact.value());
     }
 
     public static Builder builder() {

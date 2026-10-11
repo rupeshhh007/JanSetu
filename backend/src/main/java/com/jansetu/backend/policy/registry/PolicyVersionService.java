@@ -60,23 +60,23 @@ public class PolicyVersionService {
     }
 
     @Transactional
-    public PolicyVersion submitForReview(UUID id) {
-        PolicyVersion version = find(id);
+    public PolicyVersion submitForReview(UUID schemeId, UUID id) {
+        PolicyVersion version = findOwnedVersion(schemeId, id);
         transition(version, PolicyVersionStatus.DRAFT, PolicyVersionStatus.IN_REVIEW);
         return version;
     }
 
     @Transactional
-    public PolicyVersion approve(UUID id) {
-        PolicyVersion version = find(id);
+    public PolicyVersion approve(UUID schemeId, UUID id) {
+        PolicyVersion version = findOwnedVersion(schemeId, id);
         transition(version, PolicyVersionStatus.IN_REVIEW, PolicyVersionStatus.APPROVED);
         version.setApprovedAt(Instant.now(clock));
         return version;
     }
 
     @Transactional
-    public PolicyVersion publish(UUID id) {
-        PolicyVersion candidate = find(id);
+    public PolicyVersion publish(UUID schemeId, UUID id) {
+        PolicyVersion candidate = findOwnedVersion(schemeId, id);
         if (candidate.getStatus() != PolicyVersionStatus.APPROVED) {
             throw new PolicyLifecycleException("Only an approved policy version may be published.");
         }
@@ -100,9 +100,25 @@ public class PolicyVersionService {
         return policyVersions.findBySchemeIdOrderByVersionNumberDesc(schemeId);
     }
 
+    @Transactional(readOnly = true)
+    public PolicyVersion findForScheme(UUID schemeId, UUID policyVersionId) {
+        return findForSchemeVersion(schemeId, find(policyVersionId));
+    }
+
     private PolicyVersion find(UUID id) {
         return policyVersions.findById(id)
                 .orElseThrow(() -> new PolicyVersionNotFoundException("Policy version not found"));
+    }
+
+    private PolicyVersion findOwnedVersion(UUID schemeId, UUID id) {
+        return findForSchemeVersion(schemeId, find(id));
+    }
+
+    private PolicyVersion findForSchemeVersion(UUID schemeId, PolicyVersion version) {
+        if (!version.getScheme().getId().equals(schemeId)) {
+            throw new PolicyVersionNotFoundException("Policy version not found for scheme");
+        }
+        return version;
     }
 
     private void transition(PolicyVersion version, PolicyVersionStatus expected, PolicyVersionStatus next) {
