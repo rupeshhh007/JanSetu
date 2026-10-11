@@ -1,25 +1,36 @@
 import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 import { AICopilot } from "@/features/ai/components/AICopilot";
-
+import { AuthGate } from "@/components/layout/AuthGate";
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <AuthGate>
       <Navbar />
-
-      <main
-        id="main-content"
-        className="min-h-[calc(100vh-8rem)]"
-      >
-        {children}
-      </main>
-
-      <Footer />
+      <div className="workspace-main lg:ml-[248px]">
+        <main
+          id="main-content"
+          className="workspace-content mx-auto min-h-screen max-w-[1440px] px-5 py-7 sm:px-9 lg:px-11"
+        >
+          <div className="no-print mb-8 flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              Workspace <span className="mx-2 text-border">/</span> JanSetu
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="size-1.5 rounded-full bg-primary" />
+              Citizen workspace
+            </span>
+          </div>
+          {children}
+        </main>
+        <footer className="no-print mx-5 border-t py-5 text-xs text-muted-foreground sm:mx-9 lg:mx-11">
+          JanSetu is an independent discovery and preparation tool. Government
+          applications must be completed through official channels.
+        </footer>
+      </div>
       <AICopilot />
-    </>
+    </AuthGate>
   );
 }

@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -8,166 +7,129 @@ import {
   X,
   Landmark,
   LayoutDashboard,
-  UserCircle,
-  FileText,
+  UserRound,
+  Search,
   ClipboardList,
-  Sparkles,
+  ScanLine,
   LogOut,
+  MessageCircle,
+  ShieldCheck,
 } from "lucide-react";
-
-import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
-
-const NAV_LINKS = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Profile",
-    href: "/profile",
-    icon: UserCircle,
-  },
-  {
-    label: "Schemes",
-    href: "/schemes",
-    icon: FileText,
-  },
-  {
-    label: "Applications",
-    href: "/applications",
-    icon: ClipboardList,
-  },
-  {
-    href: "/recommendations",
-    label: "Recommendations",
-    icon: Sparkles,
-  },
+import { cn } from "@/lib/utils";
+export const NAV_LINKS = [
+  { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Discover schemes", href: "/schemes", icon: Search },
+  { label: "My matches", href: "/recommendations", icon: ScanLine },
+  { label: "Applications", href: "/applications", icon: ClipboardList },
+  { label: "My profile", href: "/profile", icon: UserRound },
 ];
-
 export function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
+  const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-
-  const logout = useAuthStore((state) => state.logout);
-  const role = useAuthStore((state) => state.role);
-
-  function handleLogout() {
-    logout();
-    setIsMenuOpen(false);
-    router.replace("/login");
-  }
-
-  const linksToShow = role === "ADMIN" 
-    ? [{ label: "Admin Panel", href: "/admin", icon: LayoutDashboard }, ...NAV_LINKS]
-    : NAV_LINKS;
-
+  const { role, logout } = useAuthStore();
+  const links =
+    role === "ADMIN"
+      ? [
+          { label: "Review desk", href: "/admin", icon: ShieldCheck },
+          ...NAV_LINKS,
+        ]
+      : NAV_LINKS;
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-black/5 bg-white/70 backdrop-blur-2xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <>
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-[#163d32] px-5 py-3 text-white lg:hidden">
         <Link
           href="/dashboard"
-          className="flex min-h-touch items-center gap-2.5 rounded-md px-1 text-lg font-semibold text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex items-center gap-3 text-2xl editorial"
         >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Landmark className="size-4.5" strokeWidth={2.25} aria-hidden="true" />
-          </span>
-          <span>
-            <span className="text-primary">Jan</span>Setu
-          </span>
+          <Landmark size={25} />
+          JanSetu
         </Link>
-
-        <nav
-          aria-label="Primary navigation"
-          className="hidden items-center gap-1 md:flex"
+        <button
+          className="p-2"
+          aria-label={open ? "Close navigation" : "Open navigation"}
+          aria-expanded={open}
+          aria-controls="workspace-nav"
+          onClick={() => setOpen(!open)}
         >
-          {linksToShow.map((link) => (
+          {open ? <X /> : <Menu />}
+        </button>
+      </header>
+      {open && (
+        <button
+          aria-label="Close navigation"
+          className="fixed inset-0 top-16 z-30 bg-black/30 lg:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
+      <aside
+        id="workspace-nav"
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col bg-[#163d32] px-5 py-8 text-white lg:translate-x-0",
+          open ? "top-16 visible translate-x-0" : "invisible -translate-x-full lg:visible",
+        )}
+      >
+        <Link
+          href="/dashboard"
+          className="mb-11 hidden items-center gap-3 px-3 text-[34px] editorial lg:flex"
+        >
+          <Landmark size={32} strokeWidth={1.4} />
+          JanSetu
+        </Link>
+        <nav aria-label="Primary navigation" className="space-y-2">
+          {links.map(({ label, href, icon: Icon }) => (
             <Link
-              key={link.href}
-              href={link.href}
+              key={href}
+              href={href}
+              onClick={() => setOpen(false)}
+              aria-current={
+                pathname === href || pathname.startsWith(href + "/")
+                  ? "page"
+                  : undefined
+              }
               className={cn(
-                "flex min-h-touch items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                pathname === link.href
-                  ? "text-primary"
-                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                "flex min-h-12 items-center gap-3 rounded-lg px-4 text-sm transition-colors",
+                pathname === href || pathname.startsWith(href + "/")
+                  ? "bg-white/12 text-white"
+                  : "text-white/75 hover:bg-white/6 hover:text-white",
               )}
             >
-              <link.icon className="size-4" strokeWidth={2} aria-hidden="true" />
-              {link.label}
+              <Icon size={19} strokeWidth={1.6} />
+              {label}
             </Link>
           ))}
         </nav>
-
-        <div className="hidden md:block">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex min-h-touch items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            <LogOut className="size-4" strokeWidth={2} aria-hidden="true" />
-            Logout
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen((prev) => !prev)}
-          aria-expanded={isMenuOpen}
-          aria-controls="mobile-nav-menu"
-          aria-label={
-            isMenuOpen
-              ? "Close navigation menu"
-              : "Open navigation menu"
-          }
-          className="flex min-h-touch min-w-touch items-center justify-center rounded-md border border-border text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:hidden"
-        >
-          {isMenuOpen ? (
-            <X size={22} aria-hidden="true" />
-          ) : (
-            <Menu size={22} aria-hidden="true" />
-          )}
-        </button>
-      </div>
-
-      <nav
-        id="mobile-nav-menu"
-        aria-label="Mobile navigation"
-        className={cn(
-          "border-t border-border bg-surface md:hidden",
-          isMenuOpen ? "block" : "hidden"
-        )}
-      >
-        <div className="flex flex-col gap-1 px-4 py-3">
-          {linksToShow.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setIsMenuOpen(false)}
-              className={cn(
-                "flex min-h-touch items-center gap-2.5 rounded-lg px-3 py-2 text-base font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                pathname === link.href
-                  ? "text-primary"
-                  : "text-text-primary hover:bg-muted/50"
-              )}
+        <div className="mt-auto pt-10">
+          <div className="border-t border-white/20 px-2 pt-6">
+            <p className="editorial mb-5 text-xl text-white/90">
+              A little guidance
+              <br />
+              goes a long way.
+            </p>
+            <button
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-white/30 text-sm hover:bg-white/10"
+              onClick={() => {
+                setOpen(false);
+                window.dispatchEvent(new Event("jansetu:guide"));
+              }}
             >
-              <link.icon className="size-4.5" strokeWidth={2} aria-hidden="true" />
-              {link.label}
-            </Link>
-          ))}
-
+              <MessageCircle size={18} />
+              Ask JanSetu Guide
+            </button>
+          </div>
           <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-2 flex min-h-touch items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2 text-base font-medium text-primary-foreground hover:bg-primary-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="mt-5 flex min-h-11 items-center gap-3 px-4 text-sm text-white/70 hover:text-white"
+            onClick={() => {
+              logout();
+              router.replace("/login");
+            }}
           >
-            <LogOut className="size-4.5" strokeWidth={2} aria-hidden="true" />
-            Logout
+            <LogOut size={18} />
+            Sign out
           </button>
         </div>
-      </nav>
-    </header>
+      </aside>
+    </>
   );
 }
