@@ -10,8 +10,6 @@ import com.jansetu.backend.scheme.dto.RecommendationResponse;
 import com.jansetu.backend.scheme.service.MatchingService;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.Period;
 import java.util.List;
 
 @Component
@@ -38,8 +36,13 @@ public class ContextBuilder {
 
         User currentUser = currentUserService.getCurrentUser();
 
-        CitizenProfile profile =
-                profileService.getProfileEntity(currentUser);
+        CitizenProfile profile;
+        try {
+            profile = profileService.getProfileEntity(currentUser);
+        } catch (com.jansetu.backend.profile.exception.ProfileNotFoundException ex) {
+            return new UserContext("Citizen profile has not been created.",
+                    "Create a profile to receive personalized matches.", "No applications yet. Create your profile to begin.");
+        }
 
         String profileSummary =
                 buildProfileSummary(profile);
@@ -58,52 +61,20 @@ public class ContextBuilder {
     }
 
     private String buildProfileSummary(CitizenProfile profile) {
-
-        int age = Period.between(
-                profile.getDateOfBirth(),
-                LocalDate.now()
-        ).getYears();
-
+        // This text can leave the application boundary when an optional model
+        // provider is enabled.  Keep it intentionally minimal: the server-side
+        // evaluator has already used sensitive profile fields to make its
+        // decision, so the model does not need a name, date of birth, income,
+        // caste/category, disability, or district.
         return """
-========================
-CITIZEN PROFILE
-========================
+PRIVACY-MINIMIZED CITIZEN CONTEXT
 
-Name: %s %s
-
-Age: %d
-
-Gender: %s
-
-Occupation: %s
-
-Category: %s
-
-Annual Family Income: ₹%s
-
-State: %s
-
-District: %s
-
-Student: %s
-
-Farmer: %s
-
-Disability: %s
+The citizen's eligibility was calculated on the server from their private
+profile. Do not infer or request sensitive attributes. Their recorded state is:
+%s.
 """
                 .formatted(
-                        profile.getFirstName(),
-                        profile.getLastName(),
-                        age,
-                        profile.getGender(),
-                        profile.getPrimaryOccupation(),
-                        profile.getCategory(),
-                        profile.getAnnualFamilyIncome().toPlainString(),
-                        profile.getState(),
-                        profile.getDistrict(),
-                        profile.isStudent() ? "Yes" : "No",
-                        profile.isFarmer() ? "Yes" : "No",
-                        profile.isHasDisability() ? "Yes" : "No"
+                        profile.getState()
                 );
     }
 
@@ -159,103 +130,24 @@ ELIGIBLE SCHEMES
         return builder.toString();
     }
 
-    private String buildApplicationSummary(
-            CitizenProfile profile
-    ) {
-
-        List<Application> applications =
-                applicationRepository.findByCitizenProfile(profile);
-
-        if (applications.isEmpty()) {
-
-            return """
-========================
-APPLICATION HISTORY
-========================
-
-The citizen has not applied for any schemes yet.
-
-IMPORTANT FOR AI
-
-• All eligible schemes are available for application.
-• You may recommend eligible schemes.
-""";
-        }
-
-        StringBuilder builder = new StringBuilder();
-
-        builder.append("""
-========================
-APPLICATION HISTORY
-========================
-
-The following schemes ALREADY have an application.
-
-IMPORTANT FOR AI
-
-• NEVER recommend applying again to these schemes.
-• Instead, inform the citizen about their application status.
-• Recommend ONLY eligible schemes that are NOT listed below.
-
---------------------------------------------------
-
-""");
-
+    private String buildApplicationSummary(CitizenProfile profile) {
+        List<Application> applications = applicationRepository.findByCitizenProfile(profile);
+        if (applications.isEmpty()) return "You have not created any JanSetu tracking records yet. Explore a scheme to begin.";
+        StringBuilder builder = new StringBuilder("These are JanSetu tracking records, not government application decisions.\n\n");
         for (Application application : applications) {
-
-            builder.append("Scheme: ")
-                    .append(application.getScheme().getName())
-                    .append("\n");
-
-            builder.append("Status: ")
-                    .append(application.getStatus())
-                    .append("\n");
-
-            switch (application.getStatus()) {
-
-                case SUBMITTED ->
-                        builder.append("""
-Action Required:
-Wait for review.
-""");
-
-                case APPROVED ->
-                        builder.append("""
-Action Required:
-You have already been approved.
-No further application is needed.
-""");
-
-                case REJECTED ->
-                        builder.append("""
-Action Required:
-You may check the rejection reason before applying again.
-""");
-
-                case UNDER_REVIEW ->
-                        builder.append("""
-Action Required:
-Your application is currently under review.
-""");
-
-                case WITHDRAWN ->
-                        builder.append("""
-Action Required:
-This application was withdrawn.
-You may submit a fresh application if eligible.
-""");
-
-                default ->
-                        builder.append("""
-Action Required:
-Check the latest application status.
-""");
+            builder.append("### ").append(application.getScheme().getName()).append("\n")
+                    .append("- **Status:** ").append(application.getStatus().name().replace('_', ' ')).append("\n");
+            if (application.getRemarks() != null && !application.getRemarks().isBlank()) {
+                builder.append("- **Review note:** ").append(application.getRemarks()).append("\n");
             }
-
-            builder.append("\n----------------------------------------\n\n");
+            builder.append("- **Next step:** ").append(switch (application.getStatus()) {
+                case SUBMITTED, UNDER_REVIEW -> "Check your applications page for the next review update.";
+                case APPROVED -> "Review the note and continue through the official government portal.";
+                case REJECTED -> "Read the review note. Update your profile if needed before creating another record.";
+                case WITHDRAWN -> "You can create a new record if you meet the recorded requirements.";
+                default -> "Review the latest details in your applications page.";
+            }).append("\n\n");
         }
-
         return builder.toString();
     }
-
 }
