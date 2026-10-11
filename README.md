@@ -12,6 +12,44 @@ JanSetu is a source-backed welfare discovery and application-tracking platform f
 - Local grounded JanSetu Guide with citations and structured result cards
 - Optional Gemini-compatible provider, disabled by default to avoid spend and unnecessary data sharing
 
+## App screenshots
+
+Captured from the running production build with a synthetic demo account. These are real responsive app screens, not design mockups. Select an image to view it at full size.
+
+<table>
+<tr>
+<td width="50%" valign="top" align="center">
+<h3>Citizen overview</h3>
+<a href="docs/screenshots/citizen-overview.jpg"><img src="docs/screenshots/citizen-overview.jpg" alt="JanSetu citizen overview with saved scheme and application counts, next steps, and preparation checklist" width="100%" /></a>
+<p>Live workspace counts and a clear next step.</p>
+</td>
+<td width="50%" valign="top" align="center">
+<h3>Scheme discovery</h3>
+<a href="docs/screenshots/scheme-discovery.jpg"><img src="docs/screenshots/scheme-discovery.jpg" alt="JanSetu scheme catalogue with search, state filters, save and compare controls" width="100%" /></a>
+<p>Search, jurisdiction filters, saves, and comparisons.</p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top" align="center">
+<h3>Eligibility &amp; preparation</h3>
+<a href="docs/screenshots/scheme-detail.jpg"><img src="docs/screenshots/scheme-detail.jpg" alt="PM-KISAN benefits, document checklist, official source, recorded eligibility and local tracking steps" width="100%" /></a>
+<p>Explainable checks, document readiness, and official sources.</p>
+</td>
+<td width="50%" valign="top" align="center">
+<h3>JanSetu Guide</h3>
+<a href="docs/screenshots/jansetu-guide-desktop.jpg"><img src="docs/screenshots/jansetu-guide-desktop.jpg" alt="JanSetu Guide answering a PM-KISAN scheme question with recorded benefits and catalogue sources" width="100%" /></a>
+<p>A real catalogue-grounded answer without an external model.</p>
+</td>
+</tr>
+</table>
+
+<details>
+<summary>Mobile views: scheme preparation and guide</summary>
+<br />
+<img src="docs/screenshots/scheme-detail-mobile.jpg" alt="Responsive mobile PM-KISAN document checklist and eligibility view" width="300" />
+<img src="docs/screenshots/jansetu-guide.jpg" alt="Mobile JanSetu Guide answering a PM-KISAN document question" width="300" />
+</details>
+
 ## Local development
 
 Requirements: Java 21, Node.js 20+, Docker, and Docker Compose.
