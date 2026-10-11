@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.UUID;
 
 @Repository
@@ -15,12 +16,16 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID> 
 
     // 1. Used to prevent duplicates.
     // We check if an application exists for this profile and scheme that is NOT REJECTED or WITHDRAWN
-    boolean existsByCitizenProfileAndSchemeAndStatusNot(
+    boolean existsByCitizenProfileAndSchemeAndStatusIn(
             CitizenProfile profile,
             Scheme scheme,
-            ApplicationStatus status
+            Collection<ApplicationStatus> statuses
     );
 
     // 2. Used for the GET /applications/my endpoint
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "scheme")
     List<Application> findByCitizenProfile(CitizenProfile profile);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "scheme")
+    List<Application> findAllByOrderBySubmittedAtDesc();
 }

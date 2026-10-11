@@ -44,4 +44,7 @@ public class Application {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @Version
+    private long version;
 }
