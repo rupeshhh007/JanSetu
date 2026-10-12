@@ -64,7 +64,7 @@ public class PolicyAssessmentService {
     @Transactional
     public List<PolicyReassessment> reassessAll(PolicyVersion version) {
         LocalDate evaluationDate = LocalDate.now(clock);
-        return profiles.findAll().stream().map(profile -> {
+        return assessments.findDistinctProfilesAssessedForScheme(version.getScheme().getId()).stream().map(profile -> {
             var previous = assessments.findTopByProfileIdAndPolicyVersionSchemeIdOrderByAssessedAtDesc(
                     profile.getId(), version.getScheme().getId());
             PolicyAssessment current = record(profile, version, evaluationDate);

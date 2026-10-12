@@ -2,6 +2,9 @@ package com.jansetu.backend.assessment;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import com.jansetu.backend.profile.entity.CitizenProfile;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,4 +20,8 @@ public interface PolicyAssessmentRepository extends JpaRepository<PolicyAssessme
     @EntityGraph(attributePaths = {"policyVersion", "policyVersion.scheme"})
     Optional<PolicyAssessment> findTopByProfileIdAndPolicyVersionSchemeIdOrderByAssessedAtDesc(
             UUID profileId, UUID schemeId);
+
+    @Query("select distinct assessment.profile from PolicyAssessment assessment " +
+            "where assessment.policyVersion.scheme.id = :schemeId")
+    List<CitizenProfile> findDistinctProfilesAssessedForScheme(@Param("schemeId") UUID schemeId);
 }
