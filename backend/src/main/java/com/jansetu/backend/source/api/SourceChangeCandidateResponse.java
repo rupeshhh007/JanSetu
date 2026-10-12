@@ -12,7 +12,8 @@ public record SourceChangeCandidateResponse(
         UUID previousSnapshotId, String previousHash, String previousExcerpt, Instant previousCapturedAt,
         UUID newSnapshotId, String newHash, String newExcerpt, Instant newCapturedAt,
         String changeSummary, UUID schemeId, String schemeName, String reviewNote,
-        String reviewedBy, Instant reviewedAt, Instant createdAt
+        String reviewedBy, Instant reviewedAt, UUID proposedPolicyVersionId,
+        String draftedBy, Instant draftedAt, Instant createdAt
 ) {
     static SourceChangeCandidateResponse from(SourceChangeCandidate candidate) {
         SourceSnapshot previous = candidate.getPreviousSnapshot();
@@ -22,6 +23,8 @@ public record SourceChangeCandidateResponse(
                 current.getId(), current.getContentHash(), current.getContentExcerpt(), current.getCapturedAt(), candidate.getChangeSummary(),
                 candidate.getAffectedScheme() == null ? null : candidate.getAffectedScheme().getId(),
                 candidate.getAffectedScheme() == null ? null : candidate.getAffectedScheme().getName(), candidate.getReviewNote(),
-                candidate.getReviewedBy() == null ? null : candidate.getReviewedBy().getEmail(), candidate.getReviewedAt(), candidate.getCreatedAt());
+                candidate.getReviewedBy() == null ? null : candidate.getReviewedBy().getEmail(), candidate.getReviewedAt(),
+                candidate.getProposedPolicyVersion() == null ? null : candidate.getProposedPolicyVersion().getId(),
+                candidate.getDraftedBy() == null ? null : candidate.getDraftedBy().getEmail(), candidate.getDraftedAt(), candidate.getCreatedAt());
     }
 }

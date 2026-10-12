@@ -10,14 +10,14 @@ import java.util.List;
 import java.util.UUID;
 
 public interface SourceChangeCandidateRepository extends JpaRepository<SourceChangeCandidate, UUID> {
-    @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy"})
+    @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy", "proposedPolicyVersion", "draftedBy"})
     List<SourceChangeCandidate> findByStatusOrderByCreatedAtDesc(SourceChangeCandidateStatus status);
 
-    @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy"})
+    @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy", "proposedPolicyVersion", "draftedBy"})
     List<SourceChangeCandidate> findAllByOrderByCreatedAtDesc();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy"})
+    @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy", "proposedPolicyVersion", "draftedBy"})
     @Query("select candidate from SourceChangeCandidate candidate where candidate.id = :id")
     java.util.Optional<SourceChangeCandidate> lockById(UUID id);
 }

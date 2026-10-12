@@ -20,6 +20,9 @@ export interface SourceChangeCandidate {
   reviewNote: string | null;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  proposedPolicyVersionId: string | null;
+  draftedBy: string | null;
+  draftedAt: string | null;
   createdAt: string;
 }
 
