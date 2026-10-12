@@ -1,6 +1,7 @@
 "use client";
 
 import { ProfileForm } from "@/features/citizen/components/ProfileForm";
+import { ProfileFactLedger } from "@/features/citizen/components/ProfileFactLedger";
 import { useProfile } from "@/features/citizen/hooks/useProfile";
 
 export default function ProfilePage() {
@@ -25,5 +26,10 @@ export default function ProfilePage() {
     );
   }
 
-  return <ProfileForm initialData={data ?? null} />;
+  return (
+    <div className="space-y-6">
+      <ProfileForm initialData={data ?? null} />
+      <ProfileFactLedger enabled={Boolean(data)} />
+    </div>
+  );
 }
