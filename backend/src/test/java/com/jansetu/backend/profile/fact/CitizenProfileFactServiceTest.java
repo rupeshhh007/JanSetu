@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -42,7 +42,7 @@ class CitizenProfileFactServiceTest {
 
         assertEquals(verified, result);
         assertEquals("250000", result.getValueText());
-        assertEquals(ProfileFactConsentScope.PRIVATE, result.getConsentScope());
+        assertEquals(ProfileFactConsentScope.CASEWORKER_REUSE, result.getConsentScope());
     }
 
     @Test
@@ -67,6 +67,27 @@ class CitizenProfileFactServiceTest {
         assertEquals(List.of(reusableFact), reusable);
         assertFalse(service.isActive(expiredFact));
         assertTrue(service.isActive(reusableFact));
+    }
+
+    @Test
+    void citizenCanGrantReuseConsentWithoutReplacingAVerifiedValue() {
+        CitizenProfileFactRepository facts = mock(CitizenProfileFactRepository.class);
+        CitizenProfileRepository profiles = mock(CitizenProfileRepository.class);
+        CitizenProfileFactService service = service(facts, profiles);
+        CitizenProfile profile = profile();
+        User user = new User();
+        CitizenProfileFact verified = fact(profile, FactKey.STATE, "Maharashtra",
+                ProfileFactProvenance.OFFICIAL_RECORD, ProfileFactVerificationStatus.AUTHORITATIVE,
+                ProfileFactConsentScope.PRIVATE, null);
+        when(profiles.findByUser(user)).thenReturn(Optional.of(profile));
+        when(facts.findByProfileIdAndFactKey(profile.getId(), FactKey.STATE)).thenReturn(Optional.of(verified));
+        when(facts.save(verified)).thenReturn(verified);
+
+        CitizenProfileFact result = service.submitCitizenFact(user, FactKey.STATE, "Goa", true, null);
+
+        assertEquals("Maharashtra", result.getValueText());
+        assertEquals(ProfileFactConsentScope.CASEWORKER_REUSE, result.getConsentScope());
+        verify(facts).save(verified);
     }
 
     @Test

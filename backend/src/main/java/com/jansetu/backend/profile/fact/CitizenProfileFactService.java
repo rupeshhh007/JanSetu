@@ -48,6 +48,18 @@ public class CitizenProfileFactService {
     ) {
         CitizenProfile profile = profiles.findByUser(user)
                 .orElseThrow(() -> new ProfileNotFoundException("Create your citizen profile before adding information."));
+        return recordCitizenDeclaredFact(profile, factKey, value, consentToCaseworkerReuse, expiresAt);
+    }
+
+    /** Used by the legacy profile form to maintain a private, self-declared fact ledger. */
+    @Transactional
+    public CitizenProfileFact recordCitizenDeclaredFact(
+            CitizenProfile profile,
+            FactKey factKey,
+            String value,
+            boolean consentToCaseworkerReuse,
+            Instant expiresAt
+    ) {
         return recordFact(profile, factKey, value,
                 ProfileFactProvenance.CITIZEN_DECLARED,
                 ProfileFactVerificationStatus.SELF_DECLARED,
@@ -119,6 +131,9 @@ public class CitizenProfileFactService {
         String canonicalValue = canonicalize(factKey, value);
         CitizenProfileFact existing = facts.findByProfileIdAndFactKey(profile.getId(), factKey).orElse(null);
         if (existing != null && isRicher(existing, provenance, verificationStatus)) {
+            // Consent belongs to the citizen even when a trusted source owns the value.
+            existing.setConsentScope(consentScope);
+            facts.save(existing);
             return existing;
         }
         CitizenProfileFact target = existing == null ? new CitizenProfileFact() : existing;
