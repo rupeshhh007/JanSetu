@@ -13,6 +13,7 @@ import { useApplications } from "@/features/applications/hooks/useApplications";
 import { useProfile } from "@/features/citizen/hooks/useProfile";
 import { useSavedSchemes } from "@/store/useWorkspaceStore";
 import { APPLICATION_STATUS_META } from "@/lib/statusMeta";
+import { PolicyNotificationInbox } from "@/features/notifications/PolicyNotificationInbox";
 export default function DashboardPage() {
   const profile = useProfile();
   const schemes = useSchemes();
@@ -123,6 +124,7 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
+      <PolicyNotificationInbox />
       <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
         <section className="rounded-xl border bg-white p-6">
           <div className="flex items-center justify-between gap-3">
