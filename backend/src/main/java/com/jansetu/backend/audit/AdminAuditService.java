@@ -1,6 +1,7 @@
 package com.jansetu.backend.audit;
 
 import com.jansetu.backend.auth.entity.User;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -14,6 +15,7 @@ public class AdminAuditService {
     private final AdminAuditRecordRepository records;
     private final Clock clock;
 
+    @Autowired
     public AdminAuditService(AdminAuditRecordRepository records) { this(records, Clock.systemUTC()); }
     AdminAuditService(AdminAuditRecordRepository records, Clock clock) { this.records = records; this.clock = clock; }
 

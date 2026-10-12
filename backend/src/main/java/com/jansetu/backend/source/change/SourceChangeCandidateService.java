@@ -8,6 +8,7 @@ import com.jansetu.backend.scheme.exception.SchemeNotFoundException;
 import com.jansetu.backend.scheme.repository.SchemeRepository;
 import com.jansetu.backend.source.SourceSnapshot;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
@@ -26,6 +27,7 @@ public class SourceChangeCandidateService {
     private final AdminAuditService audit;
     private final Clock clock;
 
+    @Autowired
     public SourceChangeCandidateService(SourceChangeCandidateRepository candidates, SourceContentNormalizer normalizer,
                                         SchemeRepository schemes, AdminAuditService audit) {
         this(candidates, normalizer, schemes, audit, Clock.systemUTC());
