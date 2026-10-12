@@ -63,6 +63,11 @@ public class SourceChangeCandidateService {
         return candidates.findByStatusOrderByCreatedAtDesc(SourceChangeCandidateStatus.PENDING_REVIEW);
     }
 
+    @Transactional(readOnly = true)
+    public List<SourceChangeCandidate> history() {
+        return candidates.findAllByOrderByCreatedAtDesc();
+    }
+
     @Transactional
     public SourceChangeCandidate accept(UUID candidateId, UUID schemeId, String reason, User reviewer) {
         SourceChangeCandidate candidate = lockedPending(candidateId);

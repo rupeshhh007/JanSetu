@@ -13,6 +13,9 @@ public interface SourceChangeCandidateRepository extends JpaRepository<SourceCha
     @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy"})
     List<SourceChangeCandidate> findByStatusOrderByCreatedAtDesc(SourceChangeCandidateStatus status);
 
+    @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy"})
+    List<SourceChangeCandidate> findAllByOrderByCreatedAtDesc();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"source", "previousSnapshot", "newSnapshot", "affectedScheme", "reviewedBy"})
     @Query("select candidate from SourceChangeCandidate candidate where candidate.id = :id")

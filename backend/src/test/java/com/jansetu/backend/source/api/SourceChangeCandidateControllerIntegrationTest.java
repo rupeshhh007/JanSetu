@@ -87,7 +87,15 @@ class SourceChangeCandidateControllerIntegrationTest {
         mockMvc.perform(post(base() + "/{id}/accept", candidateId).with(SecurityMockMvcRequestPostProcessors.user(admin))
                         .contentType(MediaType.APPLICATION_JSON).content(json(schemeId, "Income threshold changed in the recorded source.")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPLICABLE"))
-                .andExpect(jsonPath("$.schemeId").value(schemeId.toString()));
+                .andExpect(jsonPath("$.schemeId").value(schemeId.toString()))
+                .andExpect(jsonPath("$.sourceUrl").value(org.hamcrest.Matchers.startsWith("https://example.gov.in/fixture/")))
+                .andExpect(jsonPath("$.previousCapturedAt").isNotEmpty())
+                .andExpect(jsonPath("$.newCapturedAt").isNotEmpty());
+
+        mockMvc.perform(get(base() + "/history").with(SecurityMockMvcRequestPostProcessors.user(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + candidateId + "')].status")
+                        .value(org.hamcrest.Matchers.hasItem("APPLICABLE")));
 
         assertEquals(SourceChangeCandidateStatus.APPLICABLE, candidates.findById(candidateId).orElseThrow().getStatus());
         var records = audit.findByEntityTypeAndEntityIdOrderByRecordedAtDesc("SOURCE_CHANGE_CANDIDATE", candidateId);

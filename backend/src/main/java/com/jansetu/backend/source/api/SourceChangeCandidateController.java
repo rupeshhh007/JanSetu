@@ -27,6 +27,11 @@ public class SourceChangeCandidateController {
         return candidates.pendingReview().stream().map(SourceChangeCandidateResponse::from).toList();
     }
 
+    @GetMapping("/history")
+    public List<SourceChangeCandidateResponse> history() {
+        return candidates.history().stream().map(SourceChangeCandidateResponse::from).toList();
+    }
+
     @PostMapping("/{candidateId}/accept")
     public SourceChangeCandidateResponse accept(@PathVariable UUID candidateId, @Valid @RequestBody SourceChangeReviewRequest request,
                                                 @AuthenticationPrincipal User user) {
