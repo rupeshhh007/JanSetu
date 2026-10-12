@@ -1,5 +1,6 @@
 package com.jansetu.backend.source;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jansetu.backend.audit.AdminAuditRecordRepository;
 import com.jansetu.backend.auth.entity.Role;
 import com.jansetu.backend.auth.entity.User;
@@ -13,12 +14,14 @@ import com.jansetu.backend.source.change.SourceChangeCandidate;
 import com.jansetu.backend.source.change.SourceChangeCandidateRepository;
 import com.jansetu.backend.source.change.SourceChangeCandidateService;
 import com.jansetu.backend.source.change.SourceChangeCandidateStatus;
+import com.jansetu.backend.source.api.SourceChangeReviewRequest;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -33,7 +36,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Testcontainers(disabledWithoutDocker = false)
@@ -73,6 +76,7 @@ class PostgresSourceReviewIntegrationTest {
     @Autowired PolicyVersionRepository policyVersions;
     @Autowired PlatformTransactionManager transactions;
     @Autowired MockMvc mockMvc;
+    @Autowired ObjectMapper objectMapper;
     @Autowired Flyway flyway;
     @Autowired JdbcTemplate jdbc;
 
@@ -108,12 +112,12 @@ class PostgresSourceReviewIntegrationTest {
         CyclicBarrier startTogether = new CyclicBarrier(2);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
-            Future<String> accepted = executor.submit(reviewAttempt(startTogether, fixture, true));
-            Future<String> rejected = executor.submit(reviewAttempt(startTogether, fixture, false));
-            List<String> outcomes = List.of(accepted.get(), rejected.get());
+            Future<Integer> accepted = executor.submit(() -> reviewRequest(startTogether, fixture, true));
+            Future<Integer> rejected = executor.submit(() -> reviewRequest(startTogether, fixture, false));
+            List<Integer> outcomes = List.of(accepted.get(), rejected.get());
 
-            assertEquals(1, outcomes.stream().filter("SUCCESS"::equals).count());
-            assertEquals(1, outcomes.stream().filter(value -> value.contains("already been reviewed")).count());
+            assertEquals(1, outcomes.stream().filter(status -> status == 200).count());
+            assertEquals(1, outcomes.stream().filter(status -> status == 409).count());
             assertEquals(1, auditFor(fixture.candidateId()));
             SourceChangeCandidate stored = candidates.findById(fixture.candidateId()).orElseThrow();
             assertTrue(stored.getStatus() == SourceChangeCandidateStatus.APPLICABLE
@@ -160,20 +164,16 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals(0, auditFor(fixture.candidateId()));
     }
 
-    private Callable<String> reviewAttempt(CyclicBarrier barrier, Fixture fixture, boolean accept) {
-        return () -> {
-            try {
-                barrier.await();
-                new TransactionTemplate(transactions).executeWithoutResult(ignored -> {
-                    User admin = users.findById(fixture.admin().getId()).orElseThrow();
-                    if (accept) review.accept(fixture.candidateId(), fixture.schemeId(), "Concurrent accept.", admin);
-                    else review.reject(fixture.candidateId(), "Concurrent reject.", admin);
-                });
-                return "SUCCESS";
-            } catch (Exception exception) {
-                return rootMessage(exception);
-            }
-        };
+    private int reviewRequest(CyclicBarrier barrier, Fixture fixture, boolean accept) throws Exception {
+        barrier.await();
+        String action = accept ? "accept" : "reject";
+        SourceChangeReviewRequest request = new SourceChangeReviewRequest(
+                accept ? fixture.schemeId() : null, accept ? "Concurrent accept." : "Concurrent reject.");
+        return mockMvc.perform(post("/api/v1/admin/source-change-candidates/{id}/{action}", fixture.candidateId(), action)
+                        .with(SecurityMockMvcRequestPostProcessors.user(fixture.admin()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andReturn().getResponse().getStatus();
     }
 
     private Fixture fixture() {
@@ -246,12 +246,6 @@ class PostgresSourceReviewIntegrationTest {
                 "select count(*) from pg_constraint where contype = 'f' and conrelid = cast(? as regclass)",
                 Integer.class, table);
         return count == null ? 0 : count;
-    }
-
-    private String rootMessage(Throwable error) {
-        Throwable current = error;
-        while (current.getCause() != null) current = current.getCause();
-        return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
     }
 
     private record Fixture(UUID candidateId, UUID schemeId, User admin) {}
