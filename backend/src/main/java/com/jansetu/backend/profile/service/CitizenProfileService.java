@@ -89,22 +89,22 @@ public class CitizenProfileService {
     }
 
     private void synchronizeSelfDeclaredFacts(CitizenProfile profile) {
-        profileFactService.recordCitizenDeclaredFact(profile, FactKey.BIRTH_DATE,
-                profile.getDateOfBirth().toString(), false, null);
-        profileFactService.recordCitizenDeclaredFact(profile, FactKey.ANNUAL_FAMILY_INCOME,
-                profile.getAnnualFamilyIncome().toPlainString(), false, null);
-        profileFactService.recordCitizenDeclaredFact(profile, FactKey.CATEGORY,
-                profile.getCategory().name(), false, null);
-        profileFactService.recordCitizenDeclaredFact(profile, FactKey.PRIMARY_OCCUPATION,
-                profile.getPrimaryOccupation().name(), false, null);
-        profileFactService.recordCitizenDeclaredFact(profile, FactKey.STATE,
-                profile.getState(), false, null);
-        profileFactService.recordCitizenDeclaredFact(profile, FactKey.IS_STUDENT,
-                Boolean.toString(profile.isStudent()), false, null);
-        profileFactService.recordCitizenDeclaredFact(profile, FactKey.IS_FARMER,
-                Boolean.toString(profile.isFarmer()), false, null);
-        profileFactService.recordCitizenDeclaredFact(profile, FactKey.HAS_DISABILITY,
-                Boolean.toString(profile.isHasDisability()), false, null);
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.BIRTH_DATE,
+                profile.getDateOfBirth().toString());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.ANNUAL_FAMILY_INCOME,
+                profile.getAnnualFamilyIncome().toPlainString());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.CATEGORY,
+                profile.getCategory().name());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.PRIMARY_OCCUPATION,
+                profile.getPrimaryOccupation().name());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.STATE,
+                profile.getState());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.IS_STUDENT,
+                Boolean.toString(profile.isStudent()));
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.IS_FARMER,
+                Boolean.toString(profile.isFarmer()));
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.HAS_DISABILITY,
+                Boolean.toString(profile.isHasDisability()));
     }
 
     // --- HELPER: Map Data from Entity to DTO ---

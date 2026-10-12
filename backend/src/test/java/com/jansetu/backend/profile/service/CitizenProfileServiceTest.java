@@ -34,9 +34,9 @@ class CitizenProfileServiceTest {
 
         service.createProfile(user, request());
 
-        verify(facts, times(8)).recordCitizenDeclaredFact(any(), any(), any(), eq(false), eq(null));
-        verify(facts).recordCitizenDeclaredFact(any(), eq(FactKey.ANNUAL_FAMILY_INCOME), eq("250000"), eq(false), eq(null));
-        verify(facts).recordCitizenDeclaredFact(any(), eq(FactKey.IS_STUDENT), eq("true"), eq(false), eq(null));
+        verify(facts, times(8)).synchronizeSelfDeclaredProfileFact(any(), any(), any());
+        verify(facts).synchronizeSelfDeclaredProfileFact(any(), eq(FactKey.ANNUAL_FAMILY_INCOME), eq("250000"));
+        verify(facts).synchronizeSelfDeclaredProfileFact(any(), eq(FactKey.IS_STUDENT), eq("true"));
     }
 
     private ProfileRequest request() {

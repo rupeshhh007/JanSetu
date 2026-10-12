@@ -67,6 +67,30 @@ public class CitizenProfileFactService {
                 expiresAt);
     }
 
+    /**
+     * Mirrors legacy profile fields without changing an existing reuse choice.
+     * A profile save updates the self-declared value, but consent remains an
+     * explicit action in the fact ledger.
+     */
+    @Transactional
+    public CitizenProfileFact synchronizeSelfDeclaredProfileFact(
+            CitizenProfile profile,
+            FactKey factKey,
+            String value
+    ) {
+        if (profile == null || profile.getId() == null || factKey == null) {
+            throw new InvalidProfileFactException("A profile and fact key are required.");
+        }
+        ProfileFactConsentScope existingConsent = facts.findByProfileIdAndFactKey(profile.getId(), factKey)
+                .map(CitizenProfileFact::getConsentScope)
+                .orElse(ProfileFactConsentScope.PRIVATE);
+        return recordFact(profile, factKey, value,
+                ProfileFactProvenance.CITIZEN_DECLARED,
+                ProfileFactVerificationStatus.SELF_DECLARED,
+                existingConsent,
+                null);
+    }
+
     /** Internal trust boundary for future document and official-record ingestion. */
     @Transactional
     public CitizenProfileFact recordTrustedFact(
@@ -145,7 +169,8 @@ public class CitizenProfileFactService {
         target.setConsentScope(consentScope);
         target.setExpiresAt(expiresAt);
         target.setCapturedAt(now);
-        return facts.save(target);
+        facts.save(target);
+        return target;
     }
 
     private boolean isRicher(

@@ -91,6 +91,22 @@ class CitizenProfileFactServiceTest {
     }
 
     @Test
+    void profileSynchronizationPreservesTheExistingReuseConsent() {
+        CitizenProfileFactRepository facts = mock(CitizenProfileFactRepository.class);
+        CitizenProfileFactService service = service(facts, mock(CitizenProfileRepository.class));
+        CitizenProfile profile = profile();
+        CitizenProfileFact existing = fact(profile, FactKey.STATE, "Maharashtra",
+                ProfileFactProvenance.CITIZEN_DECLARED, ProfileFactVerificationStatus.SELF_DECLARED,
+                ProfileFactConsentScope.CASEWORKER_REUSE, null);
+        when(facts.findByProfileIdAndFactKey(profile.getId(), FactKey.STATE)).thenReturn(Optional.of(existing));
+
+        CitizenProfileFact result = service.synchronizeSelfDeclaredProfileFact(profile, FactKey.STATE, "Goa");
+
+        assertEquals("Goa", result.getValueText());
+        assertEquals(ProfileFactConsentScope.CASEWORKER_REUSE, result.getConsentScope());
+    }
+
+    @Test
     void rejectsInvalidAndAlreadyExpiredCitizenFacts() {
         CitizenProfileFactRepository facts = mock(CitizenProfileFactRepository.class);
         CitizenProfileRepository profiles = mock(CitizenProfileRepository.class);
