@@ -3,6 +3,7 @@ package com.jansetu.backend.source;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import com.jansetu.backend.source.change.SourceChangeCandidateService;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -23,20 +24,24 @@ public class SourceSnapshotService {
     private final SourceSnapshotRepository snapshots;
     private final SourceUrlPolicy sourceUrlPolicy;
     private final SourceFetcher sourceFetcher;
+    private final SourceChangeCandidateService sourceChanges;
     private final Clock clock;
 
     @Autowired
     public SourceSnapshotService(OfficialSourceRepository sources, SourceSnapshotRepository snapshots,
-                                 SourceUrlPolicy sourceUrlPolicy, SourceFetcher sourceFetcher) {
-        this(sources, snapshots, sourceUrlPolicy, sourceFetcher, Clock.systemUTC());
+                                 SourceUrlPolicy sourceUrlPolicy, SourceFetcher sourceFetcher,
+                                 SourceChangeCandidateService sourceChanges) {
+        this(sources, snapshots, sourceUrlPolicy, sourceFetcher, sourceChanges, Clock.systemUTC());
     }
 
     SourceSnapshotService(OfficialSourceRepository sources, SourceSnapshotRepository snapshots,
-                          SourceUrlPolicy sourceUrlPolicy, SourceFetcher sourceFetcher, Clock clock) {
+                          SourceUrlPolicy sourceUrlPolicy, SourceFetcher sourceFetcher,
+                          SourceChangeCandidateService sourceChanges, Clock clock) {
         this.sources = sources;
         this.snapshots = snapshots;
         this.sourceUrlPolicy = sourceUrlPolicy;
         this.sourceFetcher = sourceFetcher;
+        this.sourceChanges = sourceChanges;
         this.clock = clock;
     }
 
@@ -73,6 +78,7 @@ public class SourceSnapshotService {
             throw new SourceIntakeException("The fetched source URL did not match the registered official source URL.");
         }
 
+        SourceSnapshot previous = snapshots.findFirstBySourceIdOrderByCapturedAtDesc(sourceId).orElse(null);
         Instant capturedAt = Instant.now(clock);
         SourceSnapshot snapshot = new SourceSnapshot();
         snapshot.setSource(source);
@@ -86,7 +92,9 @@ public class SourceSnapshotService {
         snapshot.setContentBytes(retrieved.content());
         snapshot.setCapturedAt(capturedAt);
         source.setLastSnapshotAt(capturedAt);
-        return snapshots.save(snapshot);
+        SourceSnapshot saved = snapshots.save(snapshot);
+        sourceChanges.detect(previous, saved);
+        return saved;
     }
 
     @Transactional(readOnly = true)

@@ -15,6 +15,19 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - run: chmod +x mvnw && ./mvnw test
         working-directory: backend
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - run: chmod +x mvnw && ./mvnw -Dtest=PostgresSourceReviewIntegrationTest test
+        working-directory: backend
   frontend:
     runs-on: ubuntu-latest
     steps:
