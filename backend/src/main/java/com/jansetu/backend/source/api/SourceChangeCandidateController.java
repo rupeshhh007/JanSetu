@@ -2,6 +2,8 @@ package com.jansetu.backend.source.api;
 
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.source.change.SourceChangeCandidateService;
+import com.jansetu.backend.source.change.SourceCandidatePolicyDraftService;
+import com.jansetu.backend.policy.api.PolicyVersionResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,8 +21,13 @@ import java.util.UUID;
 @RequestMapping("/api/v1/admin/source-change-candidates")
 public class SourceChangeCandidateController {
     private final SourceChangeCandidateService candidates;
+    private final SourceCandidatePolicyDraftService policyDrafts;
 
-    public SourceChangeCandidateController(SourceChangeCandidateService candidates) { this.candidates = candidates; }
+    public SourceChangeCandidateController(SourceChangeCandidateService candidates,
+                                           SourceCandidatePolicyDraftService policyDrafts) {
+        this.candidates = candidates;
+        this.policyDrafts = policyDrafts;
+    }
 
     @GetMapping
     public List<SourceChangeCandidateResponse> pending() {
@@ -42,5 +49,12 @@ public class SourceChangeCandidateController {
     public SourceChangeCandidateResponse reject(@PathVariable UUID candidateId, @Valid @RequestBody SourceChangeReviewRequest request,
                                                 @AuthenticationPrincipal User user) {
         return SourceChangeCandidateResponse.from(candidates.reject(candidateId, request.reason(), user));
+    }
+
+    @PostMapping("/{candidateId}/policy-draft")
+    public PolicyVersionResponse createPolicyDraft(@PathVariable UUID candidateId,
+                                                   @Valid @RequestBody SourceCandidatePolicyDraftRequest request,
+                                                   @AuthenticationPrincipal User user) {
+        return PolicyVersionResponse.from(policyDrafts.createDraft(candidateId, request.effectiveFrom(), request.policyRule(), user));
     }
 }

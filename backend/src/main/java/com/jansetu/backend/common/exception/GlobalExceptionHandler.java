@@ -9,6 +9,7 @@ import com.jansetu.backend.policy.registry.PolicyLifecycleException;
 import com.jansetu.backend.policy.registry.PolicyVersionNotFoundException;
 import com.jansetu.backend.policy.validation.InvalidPolicyException;
 import com.jansetu.backend.assessment.AssessmentNotFoundException;
+import com.jansetu.backend.notification.CitizenNotificationNotFoundException;
 import com.jansetu.backend.source.OfficialSourceNotFoundException;
 import com.jansetu.backend.source.SourceIntakeException;
 import com.jansetu.backend.profile.fact.InvalidProfileFactException;
@@ -51,7 +52,8 @@ public class GlobalExceptionHandler {
 
     // Handle Not Found exceptions (404)
     @ExceptionHandler({ProfileNotFoundException.class, SchemeNotFoundException.class, ApplicationNotFoundException.class,
-            PolicyVersionNotFoundException.class, AssessmentNotFoundException.class, OfficialSourceNotFoundException.class})
+            PolicyVersionNotFoundException.class, AssessmentNotFoundException.class, OfficialSourceNotFoundException.class,
+            CitizenNotificationNotFoundException.class})
     public ResponseEntity<ErrorResponse> handleNotFound(BusinessException ex) {
         return buildResponse(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage());
     }

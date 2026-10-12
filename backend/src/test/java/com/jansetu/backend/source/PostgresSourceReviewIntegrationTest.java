@@ -82,11 +82,14 @@ class PostgresSourceReviewIntegrationTest {
 
     @Test
     void appliesAllMigrationsAndPersistsDetectedReviewWithoutPublishingPolicy() {
-        assertEquals("8", flyway.info().current().getVersion().getVersion());
-        assertEquals(2, indexCount("source_change_candidates", "idx_source_change_candidates_%"));
+        assertEquals("10", flyway.info().current().getVersion().getVersion());
+        assertEquals(3, indexCount("source_change_candidates", "idx_source_change_candidates_%"));
         assertEquals(2, indexCount("administrative_audit_records", "idx_administrative_audit_records_%"));
+        assertEquals(1, indexCount("citizen_policy_notifications", "idx_citizen_policy_notifications_%"));
         assertEquals("bigint", columnType("source_change_candidates", "revision"));
-        assertEquals(5, foreignKeyCount("source_change_candidates"));
+        assertEquals(7, foreignKeyCount("source_change_candidates"));
+        assertEquals(3, foreignKeyCount("citizen_policy_notifications"));
+        assertEquals("character varying", columnType("citizen_policy_notifications", "current_result"));
 
         Fixture fixture = fixture();
         long policyCount = policyVersions.count();

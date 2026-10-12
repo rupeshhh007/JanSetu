@@ -10,6 +10,9 @@ import com.jansetu.backend.scheme.entity.EligibilityCriteria;
 import com.jansetu.backend.scheme.entity.Scheme;
 import com.jansetu.backend.scheme.entity.SchemeStatus;
 import com.jansetu.backend.scheme.repository.SchemeRepository;
+import com.jansetu.backend.policy.domain.BooleanMatchRule;
+import com.jansetu.backend.policy.domain.FactKey;
+import com.jansetu.backend.policy.registry.PolicyVersionRepository;
 import com.jansetu.backend.source.OfficialSource;
 import com.jansetu.backend.source.OfficialSourceRepository;
 import com.jansetu.backend.source.SourceSnapshot;
@@ -29,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -50,6 +54,7 @@ class SourceChangeCandidateControllerIntegrationTest {
     @Autowired private SourceSnapshotRepository snapshots;
     @Autowired private SourceChangeCandidateRepository candidates;
     @Autowired private AdminAuditRecordRepository audit;
+    @Autowired private PolicyVersionRepository policyVersions;
 
     private User admin;
     private UUID schemeId;
@@ -126,6 +131,34 @@ class SourceChangeCandidateControllerIntegrationTest {
                 .andExpect(status().isNotFound());
         assertEquals(SourceChangeCandidateStatus.PENDING_REVIEW, candidates.findById(candidateId).orElseThrow().getStatus());
         assertEquals(0, audit.findByEntityTypeAndEntityIdOrderByRecordedAtDesc("SOURCE_CHANGE_CANDIDATE", candidateId).size());
+    }
+
+    @Test
+    void acceptedCandidateCreatesOneSourceLinkedDraftWithoutPublishing() throws Exception {
+        mockMvc.perform(post(base() + "/{id}/accept", candidateId).with(SecurityMockMvcRequestPostProcessors.user(admin))
+                        .contentType(MediaType.APPLICATION_JSON).content(json(schemeId, "Evidence applies to this scheme.")))
+                .andExpect(status().isOk());
+        SourceCandidatePolicyDraftRequest draftRequest = new SourceCandidatePolicyDraftRequest(
+                LocalDate.of(2026, 11, 1),
+                new BooleanMatchRule("student-rule", "Student requirement", FactKey.IS_STUDENT, true));
+
+        mockMvc.perform(post(base() + "/{id}/policy-draft", candidateId)
+                        .with(SecurityMockMvcRequestPostProcessors.user(admin))
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(draftRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.schemeId").value(schemeId.toString()))
+                .andExpect(jsonPath("$.sourceReferences[0].snapshotId").exists())
+                .andExpect(jsonPath("$.sourceReferences[0].contentHash").value("sha256:after"));
+
+        mockMvc.perform(post(base() + "/{id}/policy-draft", candidateId)
+                        .with(SecurityMockMvcRequestPostProcessors.user(admin))
+                        .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(draftRequest)))
+                .andExpect(status().isConflict());
+        assertEquals(1, policyVersions.findBySchemeIdOrderByVersionNumberDesc(schemeId).size());
+        assertEquals("DRAFT", policyVersions.findBySchemeIdOrderByVersionNumberDesc(schemeId).getFirst().getStatus().name());
+        assertEquals(1, audit.findByEntityTypeAndEntityIdOrderByRecordedAtDesc("POLICY_VERSION",
+                policyVersions.findBySchemeIdOrderByVersionNumberDesc(schemeId).getFirst().getId()).size());
     }
 
     private SourceChangeCandidate candidate() {
