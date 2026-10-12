@@ -64,7 +64,7 @@ public class GlobalExceptionHandler {
 
     // Handle Bad Request exceptions (400)
     @ExceptionHandler({IneligibleException.class, InvalidProfileFactException.class})
-    public ResponseEntity<ErrorResponse> handleBadRequest(IneligibleException ex) {
+    public ResponseEntity<ErrorResponse> handleBadRequest(BusinessException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
     }
 
