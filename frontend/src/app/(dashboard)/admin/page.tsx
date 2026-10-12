@@ -17,6 +17,7 @@ import {
 } from "@/features/applications/api/applicationsApi";
 import type { ApplicationStatus } from "@/features/applications/types";
 import { ApplicationStatusBadge } from "@/features/applications/components/ApplicationStatusBadge";
+import { SourceChangeReviewQueue } from "@/features/admin-review/SourceChangeReviewQueue";
 import type {
   Category,
   EligibilityCriteria,
@@ -550,9 +551,11 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      <SourceChangeReviewQueue schemes={schemes ?? []} />
+
       <section className="mt-12 border-t border-border pt-8">
         <p className="noticeboard-kicker text-primary">
-          03 / Case review queue
+          04 / Case review queue
         </p>
         <h2 className="mt-2 text-3xl">Citizen applications</h2>
         {applicationsLoading ? (
