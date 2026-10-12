@@ -6,6 +6,7 @@ import com.jansetu.backend.policy.domain.PolicyFacts;
 import com.jansetu.backend.profile.entity.CitizenProfile;
 import com.jansetu.backend.profile.exception.ProfileNotFoundException;
 import com.jansetu.backend.profile.repository.CitizenProfileRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class CitizenProfileFactService {
     private final CitizenProfileRepository profiles;
     private final Clock clock;
 
+    @Autowired
     public CitizenProfileFactService(CitizenProfileFactRepository facts, CitizenProfileRepository profiles) {
         this(facts, profiles, Clock.systemUTC());
     }
