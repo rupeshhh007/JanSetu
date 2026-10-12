@@ -14,3 +14,14 @@ CREATE INDEX idx_administrative_audit_records_entity
 
 CREATE INDEX idx_administrative_audit_records_recent
     ON administrative_audit_records (recorded_at DESC);
+
+CREATE FUNCTION prevent_administrative_audit_mutation()
+RETURNS trigger AS $$
+BEGIN
+    RAISE EXCEPTION 'administrative audit records are append-only';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER administrative_audit_records_append_only
+    BEFORE UPDATE OR DELETE ON administrative_audit_records
+    FOR EACH ROW EXECUTE FUNCTION prevent_administrative_audit_mutation();

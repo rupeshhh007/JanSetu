@@ -80,6 +80,8 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals("8", flyway.info().current().getVersion().getVersion());
         assertEquals(2, indexCount("source_change_candidates", "idx_source_change_candidates_%"));
         assertEquals(2, indexCount("administrative_audit_records", "idx_administrative_audit_records_%"));
+        assertEquals("bigint", columnType("source_change_candidates", "revision"));
+        assertEquals(5, foreignKeyCount("source_change_candidates"));
 
         Fixture fixture = fixture();
         long policyCount = policyVersions.count();
@@ -89,6 +91,14 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals(SourceChangeCandidateStatus.APPLICABLE, reviewed.getStatus());
         assertEquals(1, auditFor(fixture.candidateId()));
         assertEquals(policyCount, policyVersions.count(), "source review must not create or publish a policy version");
+
+        TransactionTemplate transaction = new TransactionTemplate(transactions);
+        assertThrows(RuntimeException.class, () -> transaction.executeWithoutResult(ignored ->
+                jdbc.update("update administrative_audit_records set decision_reason = 'rewritten' where entity_id = ?",
+                        fixture.candidateId())));
+        assertThrows(RuntimeException.class, () -> transaction.executeWithoutResult(ignored ->
+                jdbc.update("delete from administrative_audit_records where entity_id = ?", fixture.candidateId())));
+        assertEquals(1, auditFor(fixture.candidateId()));
     }
 
     @Test
@@ -221,6 +231,19 @@ class PostgresSourceReviewIntegrationTest {
         Integer count = jdbc.queryForObject(
                 "select count(*) from pg_indexes where tablename = ? and indexname like ?",
                 Integer.class, table, namePattern);
+        return count == null ? 0 : count;
+    }
+
+    private String columnType(String table, String column) {
+        return jdbc.queryForObject(
+                "select data_type from information_schema.columns where table_name = ? and column_name = ?",
+                String.class, table, column);
+    }
+
+    private int foreignKeyCount(String table) {
+        Integer count = jdbc.queryForObject(
+                "select count(*) from pg_constraint where contype = 'f' and conrelid = cast(? as regclass)",
+                Integer.class, table);
         return count == null ? 0 : count;
     }
 
