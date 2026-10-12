@@ -61,6 +61,17 @@ public class PolicyAssessmentService {
         return record(profile, version, today);
     }
 
+    @Transactional
+    public List<PolicyReassessment> reassessAll(PolicyVersion version) {
+        LocalDate evaluationDate = LocalDate.now(clock);
+        return profiles.findAll().stream().map(profile -> {
+            var previous = assessments.findTopByProfileIdAndPolicyVersionSchemeIdOrderByAssessedAtDesc(
+                    profile.getId(), version.getScheme().getId());
+            PolicyAssessment current = record(profile, version, evaluationDate);
+            return new PolicyReassessment(profile, previous.map(PolicyAssessment::getPolicyResult).orElse(null), current);
+        }).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<PolicyAssessment> history(User user) {
         return assessments.findByProfileIdOrderByAssessedAtDesc(profileFor(user).getId());

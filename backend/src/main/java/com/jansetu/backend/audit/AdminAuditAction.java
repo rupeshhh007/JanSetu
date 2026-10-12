@@ -3,5 +3,8 @@ package com.jansetu.backend.audit;
 public enum AdminAuditAction {
     SOURCE_CHANGE_ACCEPTED,
     SOURCE_CHANGE_REJECTED,
-    POLICY_DRAFT_CREATED
+    POLICY_DRAFT_CREATED,
+    POLICY_SUBMITTED_FOR_REVIEW,
+    POLICY_APPROVED,
+    POLICY_PUBLISHED
 }
