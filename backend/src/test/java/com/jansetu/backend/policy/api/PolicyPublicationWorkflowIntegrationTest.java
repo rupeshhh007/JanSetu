@@ -121,6 +121,7 @@ class PolicyPublicationWorkflowIntegrationTest {
                 .andExpect(jsonPath("$[0].schemeId").value(scheme.getId().toString()))
                 .andExpect(jsonPath("$[0].previousResult").value(PolicyResult.SATISFIED.name()))
                 .andExpect(jsonPath("$[0].currentResult").value(PolicyResult.FAILED.name()))
+                .andExpect(jsonPath("$[0].message").value("A new policy version was published. Your result changed from satisfied to failed."))
                 .andExpect(jsonPath("$[0].readAt").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
         UUID notificationId = UUID.fromString(objectMapper.readTree(response).get(0).get("id").asText());
@@ -129,6 +130,12 @@ class PolicyPublicationWorkflowIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.readAt").exists());
         mockMvc.perform(patch("/api/v1/notifications/{id}/read", notificationId).with(user(otherCitizen)))
                 .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/notifications").with(user(otherCitizen)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].previousResult").value(PolicyResult.FAILED.name()))
+                .andExpect(jsonPath("$[0].currentResult").value(PolicyResult.SATISFIED.name()))
+                .andExpect(jsonPath("$[0].message").value(
+                        "A new policy version was published. Your result changed from failed to satisfied."));
 
         long assessmentCount = assessmentRecords.count();
         long notificationCount = notifications.count();

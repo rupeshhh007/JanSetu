@@ -47,6 +47,9 @@ public class CitizenPolicyNotificationService {
     private String message(PolicyReassessment reassessment) {
         String result = reassessment.assessment().getPolicyResult().name().toLowerCase().replace('_', ' ');
         if (reassessment.previousResult() == null) return "A new policy version was published. Your current result is " + result + ".";
+        if (reassessment.previousResult() == reassessment.assessment().getPolicyResult()) {
+            return "A new policy version was published. Your eligibility result remains " + result + ".";
+        }
         return "A new policy version was published. Your result changed from "
                 + reassessment.previousResult().name().toLowerCase().replace('_', ' ') + " to " + result + ".";
     }
