@@ -2,6 +2,8 @@ package com.jansetu.backend.source.change;
 
 import com.jansetu.backend.source.OfficialSource;
 import com.jansetu.backend.source.SourceSnapshot;
+import com.jansetu.backend.audit.AdminAuditService;
+import com.jansetu.backend.scheme.repository.SchemeRepository;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -17,7 +19,8 @@ class SourceChangeCandidateServiceTest {
     void createsCandidateForMeaningfulMainContentChangeButIgnoresStylingAndNavigation() {
         SourceChangeCandidateRepository candidates = mock(SourceChangeCandidateRepository.class);
         when(candidates.save(any(SourceChangeCandidate.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        SourceChangeCandidateService service = new SourceChangeCandidateService(candidates, new SourceContentNormalizer());
+        SourceChangeCandidateService service = new SourceChangeCandidateService(candidates, new SourceContentNormalizer(),
+                mock(SchemeRepository.class), mock(AdminAuditService.class));
 
         SourceSnapshot baseline = snapshot("<nav>Old navigation</nav><main><h1>Scholarship</h1><p>Income below 200000</p></main>", "sha256:old");
         SourceSnapshot stylingOnly = snapshot("<nav>New navigation</nav><style>.x { color: blue; }</style><main><h1>Scholarship</h1><p>Income below 200000</p></main>", "sha256:styled");

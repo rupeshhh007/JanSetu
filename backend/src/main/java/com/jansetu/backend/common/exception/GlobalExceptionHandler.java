@@ -12,6 +12,7 @@ import com.jansetu.backend.assessment.AssessmentNotFoundException;
 import com.jansetu.backend.source.OfficialSourceNotFoundException;
 import com.jansetu.backend.source.SourceIntakeException;
 import com.jansetu.backend.profile.fact.InvalidProfileFactException;
+import com.jansetu.backend.source.change.SourceChangeReviewException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +61,11 @@ public class GlobalExceptionHandler {
             PolicyLifecycleException.class})
     public ResponseEntity<ErrorResponse> handleConflict(BusinessException ex) {
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
+    }
+
+    @ExceptionHandler(SourceChangeReviewException.class)
+    public ResponseEntity<ErrorResponse> handleSourceChangeReview(SourceChangeReviewException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Source Change Review Conflict", ex.getMessage());
     }
 
     // Handle Bad Request exceptions (400)

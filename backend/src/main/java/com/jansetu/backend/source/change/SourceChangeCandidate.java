@@ -94,4 +94,5 @@ public class SourceChangeCandidate {
     public void setReviewedBy(User reviewedBy) { this.reviewedBy = reviewedBy; }
     public Instant getReviewedAt() { return reviewedAt; }
     public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
+    public Instant getCreatedAt() { return createdAt; }
 }
