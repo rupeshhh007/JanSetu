@@ -11,6 +11,9 @@ public interface SourceSnapshotRepository extends JpaRepository<SourceSnapshot, 
     @EntityGraph(attributePaths = "source")
     List<SourceSnapshot> findBySourceIdOrderByCapturedAtDesc(UUID sourceId);
 
+    @EntityGraph(attributePaths = "source")
+    Optional<SourceSnapshot> findFirstBySourceIdOrderByCapturedAtDesc(UUID sourceId);
+
     @Override
     @EntityGraph(attributePaths = "source")
     Optional<SourceSnapshot> findById(UUID id);
