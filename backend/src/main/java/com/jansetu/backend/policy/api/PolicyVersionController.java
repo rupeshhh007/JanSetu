@@ -2,6 +2,8 @@ package com.jansetu.backend.policy.api;
 
 import com.jansetu.backend.policy.registry.PolicyVersionCreateCommand;
 import com.jansetu.backend.policy.registry.PolicyVersionService;
+import com.jansetu.backend.policy.registry.PolicyAdministrationService;
+import com.jansetu.backend.auth.entity.User;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
 import java.util.UUID;
@@ -20,9 +23,11 @@ import java.util.UUID;
 @RequestMapping("/api/v1/admin/schemes/{schemeId}/policy-versions")
 public class PolicyVersionController {
     private final PolicyVersionService policyVersions;
+    private final PolicyAdministrationService administration;
 
-    public PolicyVersionController(PolicyVersionService policyVersions) {
+    public PolicyVersionController(PolicyVersionService policyVersions, PolicyAdministrationService administration) {
         this.policyVersions = policyVersions;
+        this.administration = administration;
     }
 
     @PostMapping
@@ -39,17 +44,23 @@ public class PolicyVersionController {
     }
 
     @PostMapping("/{policyVersionId}/submit-review")
-    public PolicyVersionResponse submitForReview(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId) {
-        return PolicyVersionResponse.from(policyVersions.submitForReview(schemeId, policyVersionId));
+    public PolicyVersionResponse submitForReview(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId,
+                                                 @Valid @RequestBody PolicyTransitionRequest request,
+                                                 @AuthenticationPrincipal User user) {
+        return PolicyVersionResponse.from(administration.submitForReview(schemeId, policyVersionId, request.reason(), user));
     }
 
     @PostMapping("/{policyVersionId}/approve")
-    public PolicyVersionResponse approve(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId) {
-        return PolicyVersionResponse.from(policyVersions.approve(schemeId, policyVersionId));
+    public PolicyVersionResponse approve(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId,
+                                         @Valid @RequestBody PolicyTransitionRequest request,
+                                         @AuthenticationPrincipal User user) {
+        return PolicyVersionResponse.from(administration.approve(schemeId, policyVersionId, request.reason(), user));
     }
 
     @PostMapping("/{policyVersionId}/publish")
-    public PolicyVersionResponse publish(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId) {
-        return PolicyVersionResponse.from(policyVersions.publish(schemeId, policyVersionId));
+    public PolicyVersionResponse publish(@PathVariable UUID schemeId, @PathVariable UUID policyVersionId,
+                                         @Valid @RequestBody PolicyTransitionRequest request,
+                                         @AuthenticationPrincipal User user) {
+        return PolicyVersionResponse.from(administration.publish(schemeId, policyVersionId, request.reason(), user));
     }
 }

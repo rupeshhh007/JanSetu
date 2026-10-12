@@ -82,7 +82,7 @@ class PostgresSourceReviewIntegrationTest {
 
     @Test
     void appliesAllMigrationsAndPersistsDetectedReviewWithoutPublishingPolicy() {
-        assertEquals("9", flyway.info().current().getVersion().getVersion());
+        assertEquals("10", flyway.info().current().getVersion().getVersion());
         assertEquals(3, indexCount("source_change_candidates", "idx_source_change_candidates_%"));
         assertEquals(2, indexCount("administrative_audit_records", "idx_administrative_audit_records_%"));
         assertEquals("bigint", columnType("source_change_candidates", "revision"));
