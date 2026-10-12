@@ -5,6 +5,9 @@ export const API_ENDPOINTS = {
   GET_PROFILE: "/api/v1/citizen/profile",
   CREATE_PROFILE: "/api/v1/citizen/profile",
   UPDATE_PROFILE: "/api/v1/citizen/profile",
+  GET_PROFILE_FACTS: "/api/v1/citizen/profile/facts",
+  UPDATE_PROFILE_FACT: (factKey: string) =>
+    `/api/v1/citizen/profile/facts/${factKey}`,
 
   GET_SCHEMES: "/api/v1/schemes",
   GET_ADMIN_SCHEMES: "/api/v1/schemes/admin",

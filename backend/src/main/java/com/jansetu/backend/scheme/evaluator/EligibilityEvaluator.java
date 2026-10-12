@@ -1,6 +1,7 @@
 package com.jansetu.backend.scheme.evaluator;
 
 import com.jansetu.backend.policy.domain.FactKey;
+import com.jansetu.backend.policy.domain.PolicyFacts;
 import com.jansetu.backend.policy.domain.PolicyResult;
 import com.jansetu.backend.policy.evaluation.PolicyEvaluation;
 import com.jansetu.backend.policy.evaluation.PolicyEvaluationContext;
@@ -8,11 +9,13 @@ import com.jansetu.backend.policy.evaluation.PolicyEvaluationEngine;
 import com.jansetu.backend.policy.evaluation.PolicyEvaluationTrace;
 import com.jansetu.backend.profile.entity.CitizenProfile;
 import com.jansetu.backend.profile.policy.CitizenProfilePolicyFacts;
+import com.jansetu.backend.profile.policy.CitizenProfilePolicyFactResolver;
 import com.jansetu.backend.scheme.entity.EligibilityCriteria;
 import com.jansetu.backend.scheme.entity.Scheme;
 import com.jansetu.backend.scheme.entity.SchemeStatus;
 import com.jansetu.backend.scheme.policy.LegacyEligibilityPolicyAdapter;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -28,23 +31,34 @@ public class EligibilityEvaluator {
     private final PolicyEvaluationEngine policyEngine;
     private final LegacyEligibilityPolicyAdapter legacyPolicyAdapter;
     private final Clock clock;
+    private final CitizenProfilePolicyFactResolver profileFactResolver;
 
+    @Autowired
     public EligibilityEvaluator(PolicyEvaluationEngine policyEngine,
-                                LegacyEligibilityPolicyAdapter legacyPolicyAdapter) {
-        this(policyEngine, legacyPolicyAdapter, Clock.systemUTC());
+                                LegacyEligibilityPolicyAdapter legacyPolicyAdapter,
+                                CitizenProfilePolicyFactResolver profileFactResolver) {
+        this(policyEngine, legacyPolicyAdapter, Clock.systemUTC(), profileFactResolver);
     }
 
     EligibilityEvaluator(PolicyEvaluationEngine policyEngine,
                          LegacyEligibilityPolicyAdapter legacyPolicyAdapter,
                          Clock clock) {
+        this(policyEngine, legacyPolicyAdapter, clock, null);
+    }
+
+    EligibilityEvaluator(PolicyEvaluationEngine policyEngine,
+                         LegacyEligibilityPolicyAdapter legacyPolicyAdapter,
+                         Clock clock,
+                         CitizenProfilePolicyFactResolver profileFactResolver) {
         this.policyEngine = policyEngine;
         this.legacyPolicyAdapter = legacyPolicyAdapter;
         this.clock = clock;
+        this.profileFactResolver = profileFactResolver;
     }
 
     /** Retained for existing plain unit tests. */
     public EligibilityEvaluator() {
-        this(new PolicyEvaluationEngine(), new LegacyEligibilityPolicyAdapter(), Clock.systemUTC());
+        this(new PolicyEvaluationEngine(), new LegacyEligibilityPolicyAdapter(), Clock.systemUTC(), null);
     }
 
     /** Shared publication and jurisdiction checks for discovery and preparation. */
@@ -83,8 +97,11 @@ public class EligibilityEvaluator {
                     List.of("The scheme's eligibility rules have not been recorded yet."), 0);
         }
 
+        PolicyFacts facts = profileFactResolver == null
+                ? CitizenProfilePolicyFacts.from(profile)
+                : profileFactResolver.resolve(profile);
         PolicyEvaluation evaluation = policyEngine.evaluate(policy,
-                new PolicyEvaluationContext(CitizenProfilePolicyFacts.from(profile), evaluationDate));
+                new PolicyEvaluationContext(facts, evaluationDate));
         List<PolicyEvaluationTrace> leaves = leafTraces(evaluation.trace());
         List<String> matched = leaves.stream().filter(trace -> trace.result() == PolicyResult.SATISFIED)
                 .map(this::messageForSatisfied).toList();

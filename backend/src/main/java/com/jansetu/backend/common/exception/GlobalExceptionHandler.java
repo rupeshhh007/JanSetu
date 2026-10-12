@@ -11,6 +11,7 @@ import com.jansetu.backend.policy.validation.InvalidPolicyException;
 import com.jansetu.backend.assessment.AssessmentNotFoundException;
 import com.jansetu.backend.source.OfficialSourceNotFoundException;
 import com.jansetu.backend.source.SourceIntakeException;
+import com.jansetu.backend.profile.fact.InvalidProfileFactException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -62,8 +63,8 @@ public class GlobalExceptionHandler {
     }
 
     // Handle Bad Request exceptions (400)
-    @ExceptionHandler(IneligibleException.class)
-    public ResponseEntity<ErrorResponse> handleBadRequest(IneligibleException ex) {
+    @ExceptionHandler({IneligibleException.class, InvalidProfileFactException.class})
+    public ResponseEntity<ErrorResponse> handleBadRequest(BusinessException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
     }
 

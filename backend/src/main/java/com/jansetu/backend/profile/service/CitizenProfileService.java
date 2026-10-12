@@ -6,18 +6,25 @@ import com.jansetu.backend.profile.dto.ProfileResponse;
 import com.jansetu.backend.profile.entity.CitizenProfile;
 import com.jansetu.backend.profile.exception.ProfileNotFoundException;
 import com.jansetu.backend.profile.repository.CitizenProfileRepository;
+import com.jansetu.backend.profile.fact.CitizenProfileFactService;
+import com.jansetu.backend.policy.domain.FactKey;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CitizenProfileService {
 
     private final CitizenProfileRepository profileRepository;
+    private final CitizenProfileFactService profileFactService;
 
-    public CitizenProfileService(CitizenProfileRepository profileRepository) {
+    public CitizenProfileService(CitizenProfileRepository profileRepository,
+                                 CitizenProfileFactService profileFactService) {
         this.profileRepository = profileRepository;
+        this.profileFactService = profileFactService;
     }
 
     // --- 1. CREATE PROFILE ---
+    @Transactional
     public ProfileResponse createProfile(User user, ProfileRequest request) {
         // Business Rule: A user can only have ONE profile.
         if (profileRepository.findByUser(user).isPresent()) {
@@ -30,6 +37,7 @@ public class CitizenProfileService {
         updateProfileFields(profile, request);
 
         CitizenProfile savedProfile = profileRepository.save(profile);
+        synchronizeSelfDeclaredFacts(savedProfile);
         return mapToResponse(savedProfile);
     }
 
@@ -39,6 +47,7 @@ public class CitizenProfileService {
     }
 
     // --- 3. UPDATE PROFILE ---
+    @Transactional
     public ProfileResponse updateProfile(User user, ProfileRequest request) {
         CitizenProfile profile = profileRepository.findByUser(user)
                 .orElseThrow(() -> new ProfileNotFoundException("Profile not found"));
@@ -46,6 +55,7 @@ public class CitizenProfileService {
         updateProfileFields(profile, request);
 
         CitizenProfile updatedProfile = profileRepository.save(profile);
+        synchronizeSelfDeclaredFacts(updatedProfile);
         return mapToResponse(updatedProfile);
     }
 
@@ -76,6 +86,25 @@ public class CitizenProfileService {
         // Use the ID instead of the User object reference
         return profileRepository.findByUser_Id(user.getId())
                 .orElseThrow(() -> new ProfileNotFoundException("Profile not found"));
+    }
+
+    private void synchronizeSelfDeclaredFacts(CitizenProfile profile) {
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.BIRTH_DATE,
+                profile.getDateOfBirth().toString());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.ANNUAL_FAMILY_INCOME,
+                profile.getAnnualFamilyIncome().toPlainString());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.CATEGORY,
+                profile.getCategory().name());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.PRIMARY_OCCUPATION,
+                profile.getPrimaryOccupation().name());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.STATE,
+                profile.getState());
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.IS_STUDENT,
+                Boolean.toString(profile.isStudent()));
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.IS_FARMER,
+                Boolean.toString(profile.isFarmer()));
+        profileFactService.synchronizeSelfDeclaredProfileFact(profile, FactKey.HAS_DISABILITY,
+                Boolean.toString(profile.isHasDisability()));
     }
 
     // --- HELPER: Map Data from Entity to DTO ---

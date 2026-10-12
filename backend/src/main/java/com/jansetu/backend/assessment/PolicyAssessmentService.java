@@ -8,7 +8,7 @@ import com.jansetu.backend.policy.evaluation.PolicyEvaluationEngine;
 import com.jansetu.backend.policy.registry.PolicyVersion;
 import com.jansetu.backend.policy.registry.PolicyVersionRepository;
 import com.jansetu.backend.profile.entity.CitizenProfile;
-import com.jansetu.backend.profile.policy.CitizenProfilePolicyFacts;
+import com.jansetu.backend.profile.policy.CitizenProfilePolicyFactResolver;
 import com.jansetu.backend.profile.repository.CitizenProfileRepository;
 import com.jansetu.backend.profile.exception.ProfileNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,20 +27,29 @@ public class PolicyAssessmentService {
     private final CitizenProfileRepository profiles;
     private final PolicyEvaluationEngine evaluator;
     private final Clock clock;
+    private final CitizenProfilePolicyFactResolver profileFactResolver;
 
     @Autowired
     public PolicyAssessmentService(PolicyAssessmentRepository assessments, PolicyVersionRepository policyVersions,
-                                   CitizenProfileRepository profiles, PolicyEvaluationEngine evaluator) {
-        this(assessments, policyVersions, profiles, evaluator, Clock.systemUTC());
+                                   CitizenProfileRepository profiles, PolicyEvaluationEngine evaluator,
+                                   CitizenProfilePolicyFactResolver profileFactResolver) {
+        this(assessments, policyVersions, profiles, evaluator, Clock.systemUTC(), profileFactResolver);
     }
 
     PolicyAssessmentService(PolicyAssessmentRepository assessments, PolicyVersionRepository policyVersions,
                             CitizenProfileRepository profiles, PolicyEvaluationEngine evaluator, Clock clock) {
+        this(assessments, policyVersions, profiles, evaluator, clock, null);
+    }
+
+    PolicyAssessmentService(PolicyAssessmentRepository assessments, PolicyVersionRepository policyVersions,
+                            CitizenProfileRepository profiles, PolicyEvaluationEngine evaluator, Clock clock,
+                            CitizenProfilePolicyFactResolver profileFactResolver) {
         this.assessments = assessments;
         this.policyVersions = policyVersions;
         this.profiles = profiles;
         this.evaluator = evaluator;
         this.clock = clock;
+        this.profileFactResolver = profileFactResolver;
     }
 
     @Transactional
@@ -68,7 +77,9 @@ public class PolicyAssessmentService {
     }
 
     private PolicyAssessment record(CitizenProfile profile, PolicyVersion version, LocalDate evaluationDate) {
-        PolicyFacts facts = CitizenProfilePolicyFacts.from(profile);
+        PolicyFacts facts = profileFactResolver == null
+                ? com.jansetu.backend.profile.policy.CitizenProfilePolicyFacts.from(profile)
+                : profileFactResolver.resolve(profile);
         PolicyEvaluation evaluation = evaluator.evaluate(version.getPolicyRule(),
                 new PolicyEvaluationContext(facts, evaluationDate));
         PolicyAssessment assessment = new PolicyAssessment();

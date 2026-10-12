@@ -4,6 +4,9 @@ import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import type {
   ProfileRequest,
   ProfileResponse,
+  ProfileFactKey,
+  ProfileFactRequest,
+  ProfileFactResponse,
 } from "../types";
 
 import axios from "axios";
@@ -46,5 +49,23 @@ export async function updateProfile(
     data
   );
 
+  return response.data;
+}
+
+export async function getProfileFacts() {
+  const response = await axiosClient.get<ProfileFactResponse[]>(
+    API_ENDPOINTS.GET_PROFILE_FACTS,
+  );
+  return response.data;
+}
+
+export async function updateProfileFact(
+  factKey: ProfileFactKey,
+  data: ProfileFactRequest,
+) {
+  const response = await axiosClient.put<ProfileFactResponse>(
+    API_ENDPOINTS.UPDATE_PROFILE_FACT(factKey),
+    data,
+  );
   return response.data;
 }
