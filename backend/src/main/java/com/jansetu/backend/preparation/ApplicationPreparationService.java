@@ -101,6 +101,9 @@ public class ApplicationPreparationService {
     public ApplicationPreparationResponse updateTask(UUID sessionId, UUID taskId, boolean complete) {
         Identity identity = identity();
         ApplicationPreparationSession session = refreshIfNeeded(owned(sessionId, identity.profile()), identity.user());
+        if (session.getStatus() == PreparationStatus.CITIZEN_REPORTED_APPLICATION) {
+            throw new PreparationException("Reported external applications have a frozen preparation history.");
+        }
         ApplicationPreparationTask task = tasks.findByIdAndSessionId(taskId, sessionId)
                 .orElseThrow(() -> new PreparationNotFoundException("Preparation task not found"));
         if (!task.isCitizenCompletable()) {
