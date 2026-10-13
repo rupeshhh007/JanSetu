@@ -110,6 +110,26 @@ class AgentInvestigationControllerIntegrationTest {
     }
 
     @Test
+    void reusedKeyCannotSilentlyReturnAnotherSchemeOrExecutionMode() throws Exception {
+        String key = "scope-safe-" + UUID.randomUUID();
+        String body = json.writeValueAsString(new StartPolicyInvestigationRequest(candidate.getId(), scheme.getId()));
+        String first = mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        UUID firstId = UUID.fromString(json.readTree(first).get("id").asText());
+        String differentMode = json.writeValueAsString(new StartPolicyInvestigationRequest(
+                candidate.getId(), scheme.getId(), AgentExecutionMode.LIVE_MODEL));
+        mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content(differentMode))
+                .andExpect(status().isConflict());
+        String differentScheme = json.writeValueAsString(new StartPolicyInvestigationRequest(candidate.getId(), scheme().getId()));
+        mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON).content(differentScheme))
+                .andExpect(status().isConflict());
+        assertEquals(AgentRunStatus.COMPLETED, runs.findById(firstId).orElseThrow().getStatus());
+    }
+
+    @Test
     void citizenCannotStartReadOrCancelInvestigations() throws Exception {
         String body = json.writeValueAsString(new StartPolicyInvestigationRequest(candidate.getId(), scheme.getId()));
         long runCountBefore = runs.count();
