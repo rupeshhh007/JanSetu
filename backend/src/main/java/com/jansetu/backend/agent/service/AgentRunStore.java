@@ -6,7 +6,6 @@ import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.scheme.entity.Scheme;
 import com.jansetu.backend.source.change.SourceChangeCandidate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -26,7 +25,7 @@ public class AgentRunStore {
         this.events = events;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public StartedRun begin(SourceChangeCandidate candidate, Scheme scheme, User actor, AgentExecutionMode mode,
                             String key, int maxToolCalls, int maxModelCalls, int maxEstimatedTokens) {
         var existing = runs.findByStartedByIdAndIdempotencyKey(actor.getId(), key);
@@ -44,7 +43,7 @@ public class AgentRunStore {
         return new StartedRun(run, true);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void recordTool(UUID runId, int toolCalls, int modelCalls, int estimatedTokens,
                            AgentEventType type, String toolName, long durationMs,
                            List<UUID> evidence, Map<String, Object> details) {
@@ -54,7 +53,7 @@ public class AgentRunStore {
         append(run, type, toolName, AgentEventOutcome.SUCCESS, durationMs, evidence, details);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void complete(UUID runId, PolicyInvestigationResult result) {
         PolicyAgentRun run = required(runId);
         requireRunning(run);
@@ -63,7 +62,7 @@ public class AgentRunStore {
                 Map.of("valid", result.validationIssues().isEmpty(), "publicationPerformed", false));
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void fail(UUID runId, String message) {
         PolicyAgentRun run = required(runId);
         if (run.getStatus() != AgentRunStatus.RUNNING) return;
@@ -71,7 +70,7 @@ public class AgentRunStore {
         append(run, AgentEventType.RUN_FAILED, null, AgentEventOutcome.ERROR, null, List.of(), Map.of("message", message));
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public PolicyAgentRun cancel(UUID runId) {
         PolicyAgentRun run = required(runId);
         requireRunning(run);
