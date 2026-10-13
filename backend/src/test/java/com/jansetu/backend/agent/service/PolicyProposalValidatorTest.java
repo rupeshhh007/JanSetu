@@ -76,6 +76,14 @@ class PolicyProposalValidatorTest {
                 .stream().anyMatch(issue -> issue.code().equals("EVIDENCE_HASH_MISMATCH")));
     }
 
+    @Test
+    void refusesNonLiteralEvidenceSpans() {
+        EvidenceCitation fabricated = new EvidenceCitation(snapshotId, "Official fixture",
+                "https://india.gov.in/fixture", "sha256:known", "Different income requirement.");
+        assertTrue(validator.validate(proposal(List.of(fabricated)), candidateId, schemeId, Set.of(snapshotId))
+                .stream().anyMatch(issue -> issue.code().equals("EVIDENCE_SPAN_MISMATCH")));
+    }
+
     private PolicyInvestigationResult proposal(List<EvidenceCitation> citations) {
         return new PolicyInvestigationResult(UUID.randomUUID(), AgentRunStatus.COMPLETED, candidateId, schemeId,
                 List.of(snapshotId), null, "Synthetic policy proposal",
