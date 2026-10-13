@@ -52,6 +52,11 @@ public class PolicyInvestigationReviewService {
                     Map.of("candidateId", run.getSourceCandidate().getId().toString(), "schemeId", run.getScheme().getId().toString()));
             return run;
         }
+        if (run.getSourceCandidate().getAffectedScheme() != null
+                && !run.getSourceCandidate().getAffectedScheme().getId().equals(run.getScheme().getId())) {
+            throw new PolicyInvestigationConflictException(
+                    "The evidence was accepted for a different scheme after this investigation started.");
+        }
         PolicyInvestigationResult original = requireResult(run);
         PolicyRule editedRule = request.proposedPolicyRule() == null ? original.proposedPolicyRule() : request.proposedPolicyRule();
         PolicyInvestigationResult edited = new PolicyInvestigationResult(original.investigationId(), original.status(),
