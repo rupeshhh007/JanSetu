@@ -157,7 +157,11 @@ class ApplicationPreparationIntegrationTest {
     void missingOfficialHandoffRemainsUnknownDespiteCompletedDocuments() throws Exception {
         scheme.setOfficialUrl(null);
         schemes.saveAndFlush(scheme);
-        JsonNode started = start(citizen);
+        JsonNode started = json.readTree(mockMvc.perform(
+                        post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(citizen)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.officialUrl").doesNotExist())
+                .andReturn().getResponse().getContentAsString());
         UUID id = UUID.fromString(started.get("id").asText());
         String document = findTask(started, "DOCUMENT").get("id").asText();
         mockMvc.perform(patch("/api/v1/preparations/{id}/tasks/{taskId}", id, document).with(user(citizen))
