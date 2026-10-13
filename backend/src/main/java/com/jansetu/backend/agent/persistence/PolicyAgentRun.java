@@ -2,6 +2,7 @@ package com.jansetu.backend.agent.persistence;
 
 import com.jansetu.backend.agent.domain.AgentExecutionMode;
 import com.jansetu.backend.agent.domain.AgentRunStatus;
+import com.jansetu.backend.agent.domain.AgentReviewStatus;
 import com.jansetu.backend.agent.domain.PolicyInvestigationResult;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.scheme.entity.Scheme;
@@ -31,6 +32,14 @@ public class PolicyAgentRun {
     private AgentExecutionMode executionMode;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30)
     private AgentRunStatus status;
+    @Enumerated(EnumType.STRING) @Column(name = "review_status", nullable = false, length = 30)
+    private AgentReviewStatus reviewStatus = AgentReviewStatus.PENDING_REVIEW;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "reviewed_by_user_id")
+    private User reviewedBy;
+    @Column(name = "review_reason", length = 1000)
+    private String reviewReason;
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
     @Column(name = "idempotency_key", nullable = false, length = 120)
     private String idempotencyKey;
     @Column(name = "max_tool_calls", nullable = false)
@@ -73,6 +82,14 @@ public class PolicyAgentRun {
     public void setExecutionMode(AgentExecutionMode executionMode) { this.executionMode = executionMode; }
     public AgentRunStatus getStatus() { return status; }
     public void setStatus(AgentRunStatus status) { this.status = status; }
+    public AgentReviewStatus getReviewStatus() { return reviewStatus; }
+    public void setReviewStatus(AgentReviewStatus reviewStatus) { this.reviewStatus = reviewStatus; }
+    public User getReviewedBy() { return reviewedBy; }
+    public void setReviewedBy(User reviewedBy) { this.reviewedBy = reviewedBy; }
+    public String getReviewReason() { return reviewReason; }
+    public void setReviewReason(String reviewReason) { this.reviewReason = reviewReason; }
+    public Instant getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
     public String getIdempotencyKey() { return idempotencyKey; }
     public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
     public int getMaxToolCalls() { return maxToolCalls; }

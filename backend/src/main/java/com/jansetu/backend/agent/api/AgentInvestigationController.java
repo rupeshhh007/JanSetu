@@ -1,7 +1,9 @@
 package com.jansetu.backend.agent.api;
 
 import com.jansetu.backend.agent.service.AgentExecutionService;
+import com.jansetu.backend.agent.service.PolicyInvestigationReviewService;
 import com.jansetu.backend.auth.entity.User;
+import com.jansetu.backend.policy.api.PolicyVersionResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,9 +17,11 @@ import com.jansetu.backend.agent.domain.AgentExecutionMode;
 @RequestMapping("/api/v1/admin/ai-investigations")
 public class AgentInvestigationController {
     private final AgentExecutionService executions;
+    private final PolicyInvestigationReviewService reviews;
 
-    public AgentInvestigationController(AgentExecutionService executions) {
+    public AgentInvestigationController(AgentExecutionService executions, PolicyInvestigationReviewService reviews) {
         this.executions = executions;
+        this.reviews = reviews;
     }
 
     @PostMapping
@@ -57,5 +61,19 @@ public class AgentInvestigationController {
                                         @RequestParam(required = false) AgentExecutionMode executionMode,
                                         @AuthenticationPrincipal User actor) {
         return PolicyAgentRunResponse.from(executions.retry(runId, executionMode, idempotencyKey, actor));
+    }
+
+    @PostMapping("/{runId}/review")
+    public PolicyAgentRunResponse review(@PathVariable UUID runId,
+                                         @Valid @RequestBody PolicyInvestigationReviewRequest request,
+                                         @AuthenticationPrincipal User actor) {
+        return PolicyAgentRunResponse.from(reviews.review(runId, request, actor));
+    }
+
+    @PostMapping("/{runId}/policy-draft")
+    public PolicyVersionResponse forward(@PathVariable UUID runId,
+                                         @Valid @RequestBody ForwardPolicyDraftRequest request,
+                                         @AuthenticationPrincipal User actor) {
+        return PolicyVersionResponse.from(reviews.forward(runId, request.effectiveFrom(), actor));
     }
 }
