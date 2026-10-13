@@ -6,6 +6,10 @@ import com.jansetu.backend.agent.domain.AgentRunStatus;
 import com.jansetu.backend.agent.persistence.PolicyAgentExecutionEventRepository;
 import com.jansetu.backend.agent.persistence.PolicyAgentRunRepository;
 import com.jansetu.backend.agent.service.AgentExecutionService;
+import com.jansetu.backend.agent.service.PolicyInvestigationException;
+import com.jansetu.backend.agent.service.PolicyInvestigationReviewService;
+import com.jansetu.backend.agent.api.AgentReviewDecision;
+import com.jansetu.backend.agent.api.PolicyInvestigationReviewRequest;
 import com.jansetu.backend.auth.entity.Role;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.auth.repository.UserRepository;
@@ -79,6 +83,7 @@ class PostgresSourceReviewIntegrationTest {
     @Autowired AdminAuditRecordRepository audit;
     @Autowired PolicyVersionRepository policyVersions;
     @Autowired AgentExecutionService agentExecutions;
+    @Autowired PolicyInvestigationReviewService agentReviews;
     @Autowired PolicyAgentRunRepository agentRuns;
     @Autowired PolicyAgentExecutionEventRepository agentEvents;
     @Autowired PlatformTransactionManager transactions;
@@ -89,7 +94,7 @@ class PostgresSourceReviewIntegrationTest {
 
     @Test
     void appliesAllMigrationsAndPersistsDetectedReviewWithoutPublishingPolicy() {
-        assertEquals("12", flyway.info().current().getVersion().getVersion());
+        assertEquals("13", flyway.info().current().getVersion().getVersion());
         assertEquals(3, indexCount("source_change_candidates", "idx_source_change_candidates_%"));
         assertEquals(2, indexCount("administrative_audit_records", "idx_administrative_audit_records_%"));
         assertEquals(1, indexCount("citizen_policy_notifications", "idx_citizen_policy_notifications_%"));
@@ -97,11 +102,12 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals(7, foreignKeyCount("source_change_candidates"));
         assertEquals(3, foreignKeyCount("citizen_policy_notifications"));
         assertEquals("character varying", columnType("citizen_policy_notifications", "current_result"));
-        assertEquals(2, indexCount("policy_agent_runs", "idx_policy_agent_runs_%"));
+        assertEquals(3, indexCount("policy_agent_runs", "idx_policy_agent_runs_%"));
         assertEquals(1, indexCount("policy_agent_execution_events", "idx_policy_agent_events_%"));
-        assertEquals(3, foreignKeyCount("policy_agent_runs"));
+        assertEquals(4, foreignKeyCount("policy_agent_runs"));
         assertEquals("jsonb", columnType("policy_agent_runs", "result"));
         assertEquals("integer", columnType("policy_agent_runs", "estimated_tokens_used"));
+        assertEquals("character varying", columnType("policy_agent_runs", "review_status"));
 
         Fixture fixture = fixture();
         long policyCount = policyVersions.count();
@@ -130,7 +136,7 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals(AgentRunStatus.COMPLETED, run.getStatus());
         assertEquals(10, run.getToolCallCount());
         assertEquals(12, agentEvents.countByRunId(run.getId()));
-        assertEquals(1, agentRuns.count());
+        assertTrue(agentRuns.existsById(run.getId()));
         assertEquals(0, policyVersions.count(), "an investigation must not create or publish a policy");
 
         UUID eventId = agentEvents.findByRunIdOrderBySequenceNumber(run.getId()).getFirst().getId();
@@ -140,6 +146,25 @@ class PostgresSourceReviewIntegrationTest {
         assertThrows(RuntimeException.class, () -> transaction.executeWithoutResult(ignored ->
                 jdbc.update("delete from policy_agent_execution_events where id = ?", eventId)));
         assertEquals(12, agentEvents.countByRunId(run.getId()));
+    }
+
+    @Test
+    void competingAgentReviewsCommitOneDecisionAndOneAudit() throws Exception {
+        Fixture fixture = fixture();
+        var run = agentExecutions.start(fixture.candidateId(), fixture.schemeId(),
+                "postgres-agent-review-" + UUID.randomUUID(), fixture.admin());
+        CyclicBarrier startTogether = new CyclicBarrier(2);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> approved = executor.submit(() -> agentReview(startTogether, run.getId(), fixture.admin(), true));
+            Future<Boolean> rejected = executor.submit(() -> agentReview(startTogether, run.getId(), fixture.admin(), false));
+
+            assertEquals(1, List.of(approved.get(), rejected.get()).stream().filter(Boolean::booleanValue).count());
+            assertEquals(1, audit.findByEntityTypeAndEntityIdOrderByRecordedAtDesc("POLICY_AGENT_RUN", run.getId()).size());
+            assertTrue(agentRuns.findById(run.getId()).orElseThrow().getReviewStatus().name().matches("APPROVED|REJECTED"));
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -210,6 +235,18 @@ class PostgresSourceReviewIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andReturn().getResponse().getStatus();
+    }
+
+    private boolean agentReview(CyclicBarrier barrier, UUID runId, User admin, boolean approve) throws Exception {
+        barrier.await();
+        try {
+            agentReviews.review(runId, new PolicyInvestigationReviewRequest(
+                    approve ? AgentReviewDecision.APPROVE : AgentReviewDecision.REJECT,
+                    approve ? "Concurrent human approval." : "Concurrent human rejection.", null), admin);
+            return true;
+        } catch (PolicyInvestigationException expectedConflict) {
+            return false;
+        }
     }
 
     private Fixture fixture() {

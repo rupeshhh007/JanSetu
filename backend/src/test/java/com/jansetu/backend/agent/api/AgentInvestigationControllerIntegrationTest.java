@@ -5,6 +5,8 @@ import com.jansetu.backend.agent.domain.AgentRunStatus;
 import com.jansetu.backend.agent.domain.AgentExecutionMode;
 import com.jansetu.backend.agent.persistence.PolicyAgentExecutionEventRepository;
 import com.jansetu.backend.agent.persistence.PolicyAgentRunRepository;
+import com.jansetu.backend.audit.AdminAuditAction;
+import com.jansetu.backend.audit.AdminAuditRecordRepository;
 import com.jansetu.backend.auth.entity.Role;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.auth.repository.UserRepository;
@@ -18,6 +20,7 @@ import com.jansetu.backend.scheme.repository.SchemeRepository;
 import com.jansetu.backend.source.*;
 import com.jansetu.backend.source.change.SourceChangeCandidate;
 import com.jansetu.backend.source.change.SourceChangeCandidateRepository;
+import com.jansetu.backend.source.change.SourceChangeCandidateStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +56,7 @@ class AgentInvestigationControllerIntegrationTest {
     @Autowired PolicyVersionRepository policyVersions;
     @Autowired PolicyAgentRunRepository runs;
     @Autowired PolicyAgentExecutionEventRepository events;
+    @Autowired AdminAuditRecordRepository audit;
 
     private User admin;
     private User citizen;
@@ -176,6 +180,47 @@ class AgentInvestigationControllerIntegrationTest {
         UUID runId = UUID.fromString(json.readTree(response).get("id").asText());
         assertEquals(AgentRunStatus.FAILED, runs.findById(runId).orElseThrow().getStatus());
         assertEquals(2, events.countByRunId(runId));
+    }
+
+    @Test
+    void administratorReviewsEditedProposalAndForwardsOnlyToDraft() throws Exception {
+        candidate.setAffectedScheme(scheme);
+        candidate.setStatus(SourceChangeCandidateStatus.APPLICABLE);
+        candidates.saveAndFlush(candidate);
+        String startBody = json.writeValueAsString(new StartPolicyInvestigationRequest(candidate.getId(), scheme.getId()));
+        String response = mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", "review-flow-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(startBody))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        UUID runId = UUID.fromString(json.readTree(response).get("id").asText());
+
+        String reviewBody = """
+                {"decision":"APPROVE","reason":"The exact citation supports a human-reviewed draft.",
+                 "proposedPolicyRule":{"type":"booleanMatch","id":"student","label":"Reviewed student enrollment","fact":"IS_STUDENT","expectedValue":true}}
+                """;
+        mockMvc.perform(post(base() + "/{runId}/review", runId).with(user(admin))
+                        .contentType(MediaType.APPLICATION_JSON).content(reviewBody))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reviewStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.result.proposedPolicyRule.label").value("Reviewed student enrollment"));
+
+        mockMvc.perform(post(base() + "/{runId}/policy-draft", runId).with(user(admin))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"effectiveFrom\":\"2027-01-01\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT"));
+
+        mockMvc.perform(post(base() + "/{runId}/review", runId).with(user(admin))
+                        .contentType(MediaType.APPLICATION_JSON).content(reviewBody))
+                .andExpect(status().isConflict());
+        mockMvc.perform(post(base() + "/{runId}/review", runId).with(user(citizen))
+                        .contentType(MediaType.APPLICATION_JSON).content(reviewBody))
+                .andExpect(status().isForbidden());
+
+        var storedRun = runs.findById(runId).orElseThrow();
+        assertEquals("FORWARDED_TO_POLICY_DRAFT", storedRun.getReviewStatus().name());
+        assertEquals(List.of(AdminAuditAction.AGENT_INVESTIGATION_FORWARDED, AdminAuditAction.AGENT_INVESTIGATION_APPROVED),
+                audit.findByEntityTypeAndEntityIdOrderByRecordedAtDesc("POLICY_AGENT_RUN", runId).stream()
+                        .map(record -> record.getAction()).toList());
+        assertEquals(2, policyVersions.findBySchemeIdOrderByVersionNumberDesc(scheme.getId()).size());
+        assertEquals(PolicyVersionStatus.DRAFT, policyVersions.findBySchemeIdOrderByVersionNumberDesc(scheme.getId()).getFirst().getStatus());
+        assertEquals(PolicyVersionStatus.PUBLISHED, policyVersions.findBySchemeIdOrderByVersionNumberDesc(scheme.getId()).get(1).getStatus());
     }
 
     private String base() { return "/api/v1/admin/ai-investigations"; }

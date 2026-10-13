@@ -45,6 +45,9 @@ Every run has a maximum of 12 tool calls by default and a 30-second execution li
 - Source content is bounded and treated as evidence. Embedded text never changes the tool registry or system instructions.
 - Citation spans must exist verbatim in the immutable snapshot and match its hash.
 - The registry exposes no arbitrary HTTP, SQL, role, citizen-data, or publication tool.
+- Completed proposals require an explicit administrator approval or rejection with a recorded reason.
+- Administrators may edit the typed rule before approval; the edited rule is validated against the original candidate, scheme, and exact snapshot citations.
+- Forwarding an approved proposal creates a `DRAFT` policy version through the existing registry. Submission, approval, publication, citizen reassessment, and notifications remain separate controlled actions.
 - Events store tool metadata and evidence IDs, not hidden model reasoning, credentials, or citizen PII.
 - A proposal always requires human review and cannot alter eligibility.
 
