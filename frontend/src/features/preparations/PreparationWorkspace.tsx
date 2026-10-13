@@ -38,7 +38,7 @@ export function PreparationWorkspace({ preparation, compact = false }: { prepara
             {(task.type === "PROFILE_FACT" || (task.type === "ELIGIBILITY" && task.status !== "COMPLETE")) && <Link href="/profile" className="text-link mt-2 text-xs">Review profile information</Link>}
             {!!task.evidenceReferences.length && <details className="mt-2"><summary className="cursor-pointer text-xs text-primary">Evidence & source</summary>
               <ul className="mt-2 space-y-2">{task.evidenceReferences.map((evidence, index) => <li key={`${evidence.snapshotId}-${index}`} className="rounded-lg bg-muted/60 p-3 text-xs leading-5">
-                <span>{evidence.sourceTitle || "Official source"}</span>{evidence.excerpt && <blockquote className="mt-1 border-l-2 border-primary pl-2">{evidence.excerpt}</blockquote>}
+                <span>{evidence.sourceTitle || "Recorded source"}{!evidence.snapshotId && <span className="ml-2 text-muted-foreground">· Link only, not an evidence snapshot</span>}</span>{evidence.excerpt && <blockquote className="mt-1 border-l-2 border-primary pl-2">{evidence.excerpt}</blockquote>}
                 {evidence.sourceUrl && <a href={evidence.sourceUrl} target="_blank" rel="noreferrer" className="text-link mt-1">Open source <ExternalLink size={12} /></a>}
               </li>)}</ul>
             </details>}
