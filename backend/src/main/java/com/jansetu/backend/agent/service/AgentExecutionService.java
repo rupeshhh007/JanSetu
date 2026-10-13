@@ -32,21 +32,25 @@ public class AgentExecutionService {
     private final Clock clock;
     private final int maxToolCalls;
     private final Duration maxDuration;
+    private final int maxModelCalls;
+    private final int maxEstimatedTokens;
 
     @Autowired
     public AgentExecutionService(PolicyAgentRunRepository runs, PolicyAgentExecutionEventRepository events,
                                  SourceChangeCandidateRepository candidates, SchemeRepository schemes,
                                  PolicyInvestigationAgent agent, AgentToolRegistry tools,
                                  @Value("${jansetu.agent.max-tool-calls:12}") int maxToolCalls,
-                                 @Value("${jansetu.agent.max-duration-seconds:30}") long maxDurationSeconds) {
+                                 @Value("${jansetu.agent.max-duration-seconds:30}") long maxDurationSeconds,
+                                 @Value("${jansetu.agent.max-model-calls:12}") int maxModelCalls,
+                                 @Value("${jansetu.agent.max-estimated-tokens:6000}") int maxEstimatedTokens) {
         this(runs, events, candidates, schemes, agent, tools, Clock.systemUTC(), maxToolCalls,
-                Duration.ofSeconds(maxDurationSeconds));
+                Duration.ofSeconds(maxDurationSeconds), maxModelCalls, maxEstimatedTokens);
     }
 
     AgentExecutionService(PolicyAgentRunRepository runs, PolicyAgentExecutionEventRepository events,
                           SourceChangeCandidateRepository candidates, SchemeRepository schemes,
                           PolicyInvestigationAgent agent, AgentToolRegistry tools, Clock clock,
-                          int maxToolCalls, Duration maxDuration) {
+                          int maxToolCalls, Duration maxDuration, int maxModelCalls, int maxEstimatedTokens) {
         this.runs = runs;
         this.events = events;
         this.candidates = candidates;
@@ -56,10 +60,18 @@ public class AgentExecutionService {
         this.clock = clock;
         this.maxToolCalls = Math.max(1, Math.min(maxToolCalls, 20));
         this.maxDuration = maxDuration;
+        this.maxModelCalls = Math.max(0, Math.min(maxModelCalls, 20));
+        this.maxEstimatedTokens = Math.max(0, Math.min(maxEstimatedTokens, 50_000));
     }
 
     @Transactional
     public PolicyAgentRun start(UUID candidateId, UUID schemeId, String idempotencyKey, User actor) {
+        return start(candidateId, schemeId, AgentExecutionMode.DETERMINISTIC_FIXTURE, idempotencyKey, actor);
+    }
+
+    @Transactional
+    public PolicyAgentRun start(UUID candidateId, UUID schemeId, AgentExecutionMode mode,
+                                String idempotencyKey, User actor) {
         authorize(actor);
         String key = normalizeKey(idempotencyKey);
         Optional<PolicyAgentRun> existing = runs.findByStartedByIdAndIdempotencyKey(actor.getId(), key);
@@ -73,14 +85,17 @@ public class AgentExecutionService {
         run.setSourceCandidate(candidate);
         run.setScheme(scheme);
         run.setStartedBy(actor);
-        run.setExecutionMode(AgentExecutionMode.DETERMINISTIC_FIXTURE);
+        run.setExecutionMode(mode == null ? AgentExecutionMode.DETERMINISTIC_FIXTURE : mode);
         run.setStatus(AgentRunStatus.RUNNING);
         run.setIdempotencyKey(key);
         run.setMaxToolCalls(maxToolCalls);
+        run.setMaxModelCalls(run.getExecutionMode() == AgentExecutionMode.LIVE_MODEL ? maxModelCalls : 0);
+        run.setMaxEstimatedTokens(run.getExecutionMode() == AgentExecutionMode.LIVE_MODEL ? maxEstimatedTokens : 0);
         run.setStartedAt(clock.instant());
         run = runs.saveAndFlush(run);
         append(run, AgentEventType.RUN_STARTED, null, AgentEventOutcome.SUCCESS, null, List.of(),
-                Map.of("mode", run.getExecutionMode().name(), "maxToolCalls", maxToolCalls));
+                Map.of("mode", run.getExecutionMode().name(), "maxToolCalls", maxToolCalls,
+                        "maxModelCalls", run.getMaxModelCalls(), "maxEstimatedTokens", run.getMaxEstimatedTokens()));
         execute(run, actor);
         return run;
     }
@@ -92,8 +107,18 @@ public class AgentExecutionService {
         try {
             while (true) {
                 enforceBudgets(run);
-                AgentToolName tool = agent.nextTool(observations);
+                if (run.getExecutionMode() == AgentExecutionMode.LIVE_MODEL
+                        && run.getModelCallCount() >= run.getMaxModelCalls()) {
+                    throw new PolicyInvestigationException("The investigation exhausted its model-call budget.");
+                }
+                AgentPlanDecision plan = agent.nextTool(observations, run.getExecutionMode(),
+                        run.getMaxEstimatedTokens() - run.getEstimatedTokensUsed());
+                AgentToolName tool = plan.tool();
                 if (tool == null) break;
+                if (plan.modelCall()) {
+                    run.setModelCallCount(run.getModelCallCount() + 1);
+                    run.setEstimatedTokensUsed(run.getEstimatedTokensUsed() + plan.estimatedTokens());
+                }
                 if (tool == AgentToolName.VALIDATE_POLICY_PROPOSAL && proposal == null) {
                     proposal = agent.buildProposal(run.getId(), run.getSourceCandidate().getId(), run.getScheme().getId(),
                             observations, List.of());

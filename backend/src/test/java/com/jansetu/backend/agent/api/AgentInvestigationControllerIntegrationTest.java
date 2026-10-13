@@ -2,6 +2,7 @@ package com.jansetu.backend.agent.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jansetu.backend.agent.domain.AgentRunStatus;
+import com.jansetu.backend.agent.domain.AgentExecutionMode;
 import com.jansetu.backend.agent.persistence.PolicyAgentExecutionEventRepository;
 import com.jansetu.backend.agent.persistence.PolicyAgentRunRepository;
 import com.jansetu.backend.auth.entity.Role;
@@ -111,6 +112,21 @@ class AgentInvestigationControllerIntegrationTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(get(base()).with(user(citizen))).andExpect(status().isForbidden());
         assertEquals(0, runs.count());
+    }
+
+    @Test
+    void liveModeFailsSafelyWhenProviderIsDisabled() throws Exception {
+        String body = json.writeValueAsString(new StartPolicyInvestigationRequest(
+                candidate.getId(), scheme.getId(), AgentExecutionMode.LIVE_MODEL));
+        mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", "live-disabled-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.executionMode").value("LIVE_MODEL"))
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.failureMessage", org.hamcrest.Matchers.containsString("disabled")))
+                .andExpect(jsonPath("$.modelCallCount").value(0));
+        assertEquals(0, policyVersions.findBySchemeIdOrderByVersionNumberDesc(scheme.getId()).stream()
+                .filter(version -> version.getStatus() != PolicyVersionStatus.PUBLISHED).count());
     }
 
     @Test

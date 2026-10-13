@@ -25,7 +25,7 @@ public class AgentInvestigationController {
                                         @RequestHeader("Idempotency-Key") String idempotencyKey,
                                         @AuthenticationPrincipal User actor) {
         return PolicyAgentRunResponse.from(executions.start(
-                request.candidateId(), request.schemeId(), idempotencyKey, actor));
+                request.candidateId(), request.schemeId(), request.resolvedMode(), idempotencyKey, actor));
     }
 
     @GetMapping

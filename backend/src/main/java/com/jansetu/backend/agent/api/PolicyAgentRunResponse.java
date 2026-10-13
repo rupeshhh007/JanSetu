@@ -17,6 +17,10 @@ public record PolicyAgentRunResponse(
         AgentRunStatus status,
         int maxToolCalls,
         int toolCallCount,
+        int maxModelCalls,
+        int modelCallCount,
+        int maxEstimatedTokens,
+        int estimatedTokensUsed,
         PolicyInvestigationResult result,
         String failureMessage,
         Instant startedAt,
@@ -26,7 +30,8 @@ public record PolicyAgentRunResponse(
     public static PolicyAgentRunResponse from(PolicyAgentRun run) {
         return new PolicyAgentRunResponse(run.getId(), run.getSourceCandidate().getId(), run.getScheme().getId(),
                 run.getScheme().getName(), run.getExecutionMode(), run.getStatus(), run.getMaxToolCalls(),
-                run.getToolCallCount(), run.getResult(), run.getFailureMessage(), run.getStartedAt(),
+                run.getToolCallCount(), run.getMaxModelCalls(), run.getModelCallCount(), run.getMaxEstimatedTokens(),
+                run.getEstimatedTokensUsed(), run.getResult(), run.getFailureMessage(), run.getStartedAt(),
                 run.getCompletedAt(), run.getCancelledAt());
     }
 }

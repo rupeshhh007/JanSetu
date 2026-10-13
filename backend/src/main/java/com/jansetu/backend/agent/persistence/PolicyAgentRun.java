@@ -37,6 +37,14 @@ public class PolicyAgentRun {
     private int maxToolCalls;
     @Column(name = "tool_call_count", nullable = false)
     private int toolCallCount;
+    @Column(name = "max_model_calls", nullable = false)
+    private int maxModelCalls;
+    @Column(name = "model_call_count", nullable = false)
+    private int modelCallCount;
+    @Column(name = "max_estimated_tokens", nullable = false)
+    private int maxEstimatedTokens;
+    @Column(name = "estimated_tokens_used", nullable = false)
+    private int estimatedTokensUsed;
     @JdbcTypeCode(SqlTypes.JSON) @Column(columnDefinition = "jsonb")
     private PolicyInvestigationResult result;
     @Column(name = "failure_message", length = 1000)
@@ -71,6 +79,14 @@ public class PolicyAgentRun {
     public void setMaxToolCalls(int maxToolCalls) { this.maxToolCalls = maxToolCalls; }
     public int getToolCallCount() { return toolCallCount; }
     public void setToolCallCount(int toolCallCount) { this.toolCallCount = toolCallCount; }
+    public int getMaxModelCalls() { return maxModelCalls; }
+    public void setMaxModelCalls(int maxModelCalls) { this.maxModelCalls = maxModelCalls; }
+    public int getModelCallCount() { return modelCallCount; }
+    public void setModelCallCount(int modelCallCount) { this.modelCallCount = modelCallCount; }
+    public int getMaxEstimatedTokens() { return maxEstimatedTokens; }
+    public void setMaxEstimatedTokens(int maxEstimatedTokens) { this.maxEstimatedTokens = maxEstimatedTokens; }
+    public int getEstimatedTokensUsed() { return estimatedTokensUsed; }
+    public void setEstimatedTokensUsed(int estimatedTokensUsed) { this.estimatedTokensUsed = estimatedTokensUsed; }
     public PolicyInvestigationResult getResult() { return result; }
     public void setResult(PolicyInvestigationResult result) { this.result = result; }
     public String getFailureMessage() { return failureMessage; }
