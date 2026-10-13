@@ -134,6 +134,11 @@ export function AIInvestigationWorkspace({ candidates, schemes }: Props) {
                 <ModeButton selected={mode === "LIVE_MODEL"} onClick={() => setMode("LIVE_MODEL")} title="Live model" detail="Provider must be enabled" />
               </div>
             </fieldset>
+            <p className="mt-3 text-xs leading-5 text-text-muted" role="note">
+              {mode === "DETERMINISTIC_FIXTURE"
+                ? "Synthetic offline investigation: fixed tool order and the existing policy rule, not a model-extracted amendment."
+                : "Live model chooses among authorized read tools only. A human must write and verify any rule amendment."}
+            </p>
             {selectedCandidate && <p className="mt-4 rounded-lg bg-black/[0.025] p-3 text-xs leading-5 text-text-muted">{selectedCandidate.changeSummary}</p>}
             <button type="submit" disabled={!canStart} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 font-bold text-primary-foreground disabled:opacity-50">
               {start.isPending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}{start.isPending ? "Investigating…" : "Start bounded investigation"}
