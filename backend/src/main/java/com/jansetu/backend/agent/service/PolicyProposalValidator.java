@@ -66,6 +66,9 @@ public class PolicyProposalValidator {
         if (!snapshot.getContentExcerpt().contains(span) && !fullContent.contains(span)) {
             issues.add(issue("EVIDENCE_SPAN_MISMATCH", "A citation is not an exact span of its immutable snapshot."));
         }
+        if (!snapshot.getSourceNameAtCapture().equals(citation.sourceTitle())) {
+            issues.add(issue("EVIDENCE_TITLE_MISMATCH", "The cited source name must match the immutable capture."));
+        }
         if (!snapshot.getSourceUrlAtCapture().equals(citation.sourceUrl())) {
             issues.add(issue("EVIDENCE_URL_MISMATCH", "The cited source URL must match the captured immutable snapshot."));
         }
