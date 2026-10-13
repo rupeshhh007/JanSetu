@@ -88,7 +88,7 @@ public class ApplicationPreparationService {
     public List<ApplicationPreparationResponse> mine() {
         Identity identity = identity();
         return sessions.findByProfileIdOrderByUpdatedAtDesc(identity.profile().getId()).stream()
-                .map(session -> response(refreshIfNeeded(session, identity.user()))).toList();
+                .map(session -> response(refreshIfNeeded(owned(session.getId(), identity.profile()), identity.user()))).toList();
     }
 
     @Transactional
