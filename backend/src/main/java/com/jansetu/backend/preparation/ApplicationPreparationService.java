@@ -148,13 +148,28 @@ public class ApplicationPreparationService {
         PolicyVersion current = currentPolicy(session.getScheme().getId()).orElse(null);
         UUID storedPolicy = session.getPolicyVersion() == null ? null : session.getPolicyVersion().getId();
         UUID currentPolicy = current == null ? null : current.getId();
-        if (session.getSchemeRevision() == session.getScheme().getVersion() && Objects.equals(storedPolicy, currentPolicy)) return session;
+        if (session.getSchemeRevision() == session.getScheme().getVersion()
+                && Objects.equals(storedPolicy, currentPolicy) && !eligibilityTasksChanged(session)) return session;
         Set<String> completedDocuments = tasks.findBySessionIdOrderByTaskTypeAscTitleAsc(session.getId()).stream()
                 .filter(task -> task.getTaskType() == PreparationTaskType.DOCUMENT && task.getStatus() == PreparationTaskStatus.COMPLETE)
                 .map(ApplicationPreparationTask::getTaskKey).collect(java.util.stream.Collectors.toSet());
         session.setSchemeRevision(session.getScheme().getVersion()); session.setPolicyVersion(current);
         rebuildTasks(session, session.getProfile(), actor, completedDocuments, true);
         return session;
+    }
+
+    /** Refresh fact-derived tasks when citizen profile/fact outcomes have changed even if the catalogue has not. */
+    private boolean eligibilityTasksChanged(ApplicationPreparationSession session) {
+        List<ApplicationPreparationTask> predicted = new ArrayList<>();
+        appendEligibilityTasks(session, session.getProfile(), evidence(session), predicted);
+        Map<String, PreparationTaskStatus> expected = new HashMap<>();
+        predicted.forEach(task -> expected.put(task.getTaskKey(), task.getStatus()));
+        Map<String, PreparationTaskStatus> stored = new HashMap<>();
+        tasks.findBySessionIdOrderByTaskTypeAscTitleAsc(session.getId()).stream()
+                .filter(task -> task.getTaskType() == PreparationTaskType.ELIGIBILITY
+                        || task.getTaskType() == PreparationTaskType.PROFILE_FACT)
+                .forEach(task -> stored.put(task.getTaskKey(), task.getStatus()));
+        return !stored.equals(expected);
     }
 
     private void rebuildTasks(ApplicationPreparationSession session, CitizenProfile profile, User actor,
