@@ -94,6 +94,9 @@ public class AgentExecutionService {
         List<PolicyValidationIssue> validationIssues = List.of();
         try {
             while (true) {
+                // A fully completed plan must be allowed to finish at exactly the configured
+                // tool/model limit. Check for terminal state without making a model call.
+                if (!agent.hasRemainingTools(observations)) break;
                 enforceBudgets(run);
                 if (run.getExecutionMode() == AgentExecutionMode.LIVE_MODEL
                         && run.getModelCallCount() >= run.getMaxModelCalls()) {
