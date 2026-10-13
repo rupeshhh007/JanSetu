@@ -196,7 +196,7 @@ public class AgentExecutionService {
     }
 
     private void authorize(User actor) {
-        if (actor == null || actor.getRole() != Role.ADMIN || !actor.isEnabled()) {
+        if (actor == null || actor.getId() == null || actor.getRole() != Role.ADMIN || !actor.isEnabled()) {
             throw new PolicyInvestigationException("Administrator authorization is required.");
         }
     }
