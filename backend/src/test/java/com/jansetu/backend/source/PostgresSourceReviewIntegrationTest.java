@@ -14,6 +14,14 @@ import com.jansetu.backend.auth.entity.Role;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.auth.repository.UserRepository;
 import com.jansetu.backend.policy.registry.PolicyVersionRepository;
+import com.jansetu.backend.preparation.ApplicationPreparationHistoryRepository;
+import com.jansetu.backend.preparation.ApplicationPreparationSessionRepository;
+import com.jansetu.backend.profile.entity.Category;
+import com.jansetu.backend.profile.entity.CitizenProfile;
+import com.jansetu.backend.profile.entity.Gender;
+import com.jansetu.backend.profile.entity.MaritalStatus;
+import com.jansetu.backend.profile.entity.Occupation;
+import com.jansetu.backend.profile.repository.CitizenProfileRepository;
 import com.jansetu.backend.scheme.entity.EligibilityCriteria;
 import com.jansetu.backend.scheme.entity.Scheme;
 import com.jansetu.backend.scheme.entity.SchemeStatus;
@@ -41,7 +49,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
@@ -53,6 +63,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -82,6 +93,9 @@ class PostgresSourceReviewIntegrationTest {
     @Autowired UserRepository users;
     @Autowired AdminAuditRecordRepository audit;
     @Autowired PolicyVersionRepository policyVersions;
+    @Autowired CitizenProfileRepository profiles;
+    @Autowired ApplicationPreparationSessionRepository preparations;
+    @Autowired ApplicationPreparationHistoryRepository preparationHistory;
     @Autowired AgentExecutionService agentExecutions;
     @Autowired PolicyInvestigationReviewService agentReviews;
     @Autowired PolicyAgentRunRepository agentRuns;
@@ -94,7 +108,7 @@ class PostgresSourceReviewIntegrationTest {
 
     @Test
     void appliesAllMigrationsAndPersistsDetectedReviewWithoutPublishingPolicy() {
-        assertEquals("14", flyway.info().current().getVersion().getVersion());
+        assertEquals("15", flyway.info().current().getVersion().getVersion());
         assertEquals(3, indexCount("source_change_candidates", "idx_source_change_candidates_%"));
         assertEquals(2, indexCount("administrative_audit_records", "idx_administrative_audit_records_%"));
         assertEquals(1, indexCount("citizen_policy_notifications", "idx_citizen_policy_notifications_%"));
@@ -109,6 +123,10 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals("integer", columnType("policy_agent_runs", "estimated_tokens_used"));
         assertEquals("character varying", columnType("policy_agent_runs", "review_status"));
         assertEquals(30, columnLength("policy_agent_runs", "execution_mode"));
+        assertEquals(1, indexCount("application_preparation_sessions", "idx_preparation_sessions_%"));
+        assertEquals(1, indexCount("application_preparation_tasks", "idx_preparation_tasks_%"));
+        assertEquals(1, indexCount("application_preparation_history", "idx_preparation_history_%"));
+        assertEquals("jsonb", columnType("application_preparation_tasks", "evidence_references"));
 
         Fixture fixture = fixture();
         long policyCount = policyVersions.count();
@@ -251,6 +269,45 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals(0, auditFor(fixture.candidateId()));
     }
 
+    @Test
+    void citizenPreparationJourneyPersistsWithAppendOnlyHistoryOnPostgres() throws Exception {
+        User citizen = citizen("postgres-preparation");
+        Scheme scheme = preparationScheme();
+
+        var started = objectMapper.readTree(mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId())
+                        .with(SecurityMockMvcRequestPostProcessors.user(citizen)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+        UUID sessionId = UUID.fromString(started.get("id").asText());
+        UUID documentTaskId = null;
+        for (var task : started.get("tasks")) {
+            if ("DOCUMENT".equals(task.get("type").asText())) {
+                documentTaskId = UUID.fromString(task.get("id").asText());
+                break;
+            }
+        }
+        assertTrue(documentTaskId != null, "the verified document requirement must become a task");
+
+        mockMvc.perform(patch("/api/v1/preparations/{sessionId}/tasks/{taskId}", sessionId, documentTaskId)
+                        .with(SecurityMockMvcRequestPostProcessors.user(citizen))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"complete\":true}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/preparations/{sessionId}/report-applied", sessionId)
+                        .with(SecurityMockMvcRequestPostProcessors.user(citizen)))
+                .andExpect(status().isOk());
+
+        assertEquals("CITIZEN_REPORTED_APPLICATION", preparations.findById(sessionId).orElseThrow().getStatus().name());
+        assertEquals(4, preparationHistory.findBySessionIdOrderByRecordedAtDesc(sessionId).size());
+        UUID historyId = preparationHistory.findBySessionIdOrderByRecordedAtDesc(sessionId).getFirst().getId();
+        TransactionTemplate transaction = new TransactionTemplate(transactions);
+        assertThrows(RuntimeException.class, () -> transaction.executeWithoutResult(ignored ->
+                jdbc.update("update application_preparation_history set event_type = 'TASK_REOPENED' where id = ?", historyId)));
+        assertThrows(RuntimeException.class, () -> transaction.executeWithoutResult(ignored ->
+                jdbc.update("delete from application_preparation_history where id = ?", historyId)));
+        assertEquals(4, preparationHistory.findBySessionIdOrderByRecordedAtDesc(sessionId).size());
+    }
+
     private int reviewRequest(CyclicBarrier barrier, Fixture fixture, boolean accept) throws Exception {
         barrier.await();
         String action = accept ? "accept" : "reject";
@@ -306,6 +363,44 @@ class PostgresSourceReviewIntegrationTest {
         user.setRole(role);
         user.setEnabled(true);
         return users.saveAndFlush(user);
+    }
+
+    private User citizen(String prefix) {
+        User user = user(prefix, Role.CITIZEN);
+        CitizenProfile profile = new CitizenProfile();
+        profile.setUser(user);
+        profile.setFirstName("Postgres");
+        profile.setLastName("Citizen");
+        profile.setDateOfBirth(LocalDate.of(1995, 1, 1));
+        profile.setGender(Gender.FEMALE);
+        profile.setState("Maharashtra");
+        profile.setDistrict("Pune");
+        profile.setPincode("411001");
+        profile.setCategory(Category.GENERAL);
+        profile.setAnnualFamilyIncome(new BigDecimal("100000"));
+        profile.setMaritalStatus(MaritalStatus.SINGLE);
+        profile.setPrimaryOccupation(Occupation.STUDENT);
+        profile.setStudent(true);
+        profiles.saveAndFlush(profile);
+        return user;
+    }
+
+    private Scheme preparationScheme() {
+        Scheme scheme = new Scheme();
+        scheme.setName("Postgres preparation " + UUID.randomUUID());
+        scheme.setDescription("PostgreSQL application preparation fixture.");
+        scheme.setState("Maharashtra");
+        scheme.setDepartment("Test");
+        scheme.setStatus(SchemeStatus.PUBLISHED);
+        scheme.setPublishedAt(Instant.now());
+        scheme.setOfficialUrl("https://example.gov.in/apply");
+        scheme.setSourceName("Synthetic authority");
+        EligibilityCriteria criteria = new EligibilityCriteria();
+        criteria.setMaxFamilyIncome(new BigDecimal("500000"));
+        scheme.setEligibilityCriteria(criteria);
+        scheme.setBenefits(List.of("Test support"));
+        scheme.setRequiredDocuments(List.of("Income certificate"));
+        return schemes.saveAndFlush(scheme);
     }
 
     private SourceSnapshot snapshot(OfficialSource source, String hash, String text) {
