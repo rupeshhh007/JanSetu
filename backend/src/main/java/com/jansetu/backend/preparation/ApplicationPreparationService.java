@@ -258,7 +258,7 @@ public class ApplicationPreparationService {
     private ApplicationPreparationResponse response(ApplicationPreparationSession session) {
         List<PreparationTaskResponse> taskResponses = tasks.findBySessionIdOrderByTaskTypeAscTitleAsc(session.getId()).stream()
                 .map(PreparationTaskResponse::from).toList();
-        List<PreparationHistoryResponse> historyResponses = history.findBySessionIdOrderByRecordedAtDesc(session.getId()).stream()
+        List<PreparationHistoryResponse> historyResponses = history.findTop100BySessionIdOrderByRecordedAtDesc(session.getId()).stream()
                 .map(PreparationHistoryResponse::from).toList();
         return ApplicationPreparationResponse.from(session, taskResponses, historyResponses);
     }
