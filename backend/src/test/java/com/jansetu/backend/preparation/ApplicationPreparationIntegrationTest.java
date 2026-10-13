@@ -308,6 +308,24 @@ class ApplicationPreparationIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
     }
 
+    @Test
+    void reportedApplicationKeepsItsHistoricalTasksAfterSchemeRevision() throws Exception {
+        JsonNode started = start(citizen);
+        UUID id = UUID.fromString(started.get("id").asText());
+        String document = findTask(started, "DOCUMENT").get("id").asText();
+        mockMvc.perform(patch("/api/v1/preparations/{id}/tasks/{taskId}", id, document)
+                        .with(user(citizen)).contentType(MediaType.APPLICATION_JSON).content("{\"complete\":true}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/preparations/{id}/report-applied", id).with(user(citizen)))
+                .andExpect(status().isOk());
+        scheme.setRequiredDocuments(List.of("A new post-application document"));
+        schemes.saveAndFlush(scheme);
+        mockMvc.perform(get("/api/v1/preparations/{id}", id).with(user(citizen)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CITIZEN_REPORTED_APPLICATION"))
+                .andExpect(jsonPath("$.tasks[?(@.title == 'Income certificate')]", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.history.length()").value(4));
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
