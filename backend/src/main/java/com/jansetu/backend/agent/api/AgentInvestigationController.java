@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import com.jansetu.backend.agent.domain.AgentExecutionMode;
 
 @RestController
 @RequestMapping("/api/v1/admin/ai-investigations")
@@ -47,5 +48,14 @@ public class AgentInvestigationController {
     @PostMapping("/{runId}/cancel")
     public PolicyAgentRunResponse cancel(@PathVariable UUID runId, @AuthenticationPrincipal User actor) {
         return PolicyAgentRunResponse.from(executions.cancel(runId, actor));
+    }
+
+    @PostMapping("/{runId}/retry")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PolicyAgentRunResponse retry(@PathVariable UUID runId,
+                                        @RequestHeader("Idempotency-Key") String idempotencyKey,
+                                        @RequestParam(required = false) AgentExecutionMode executionMode,
+                                        @AuthenticationPrincipal User actor) {
+        return PolicyAgentRunResponse.from(executions.retry(runId, executionMode, idempotencyKey, actor));
     }
 }

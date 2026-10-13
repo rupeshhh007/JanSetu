@@ -25,7 +25,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.annotation.DirtiesContext;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -40,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Transactional
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class AgentInvestigationControllerIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper json;
@@ -79,6 +79,7 @@ class AgentInvestigationControllerIntegrationTest {
     @Test
     void adminRunsPersistedBoundedInvestigationAndIdempotentReplay() throws Exception {
         String key = "investigation-" + UUID.randomUUID();
+        long runCountBefore = runs.count();
         String body = json.writeValueAsString(new StartPolicyInvestigationRequest(candidate.getId(), scheme.getId()));
         String response = mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", key)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
@@ -97,7 +98,7 @@ class AgentInvestigationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.id").value(runId.toString()));
 
-        assertEquals(1, runs.count());
+        assertEquals(runCountBefore + 1, runs.count());
         assertEquals(12, events.countByRunId(runId));
         assertEquals(1, policyVersions.findBySchemeIdOrderByVersionNumberDesc(scheme.getId()).size());
         assertEquals(PolicyVersionStatus.PUBLISHED,
@@ -107,24 +108,33 @@ class AgentInvestigationControllerIntegrationTest {
     @Test
     void citizenCannotStartReadOrCancelInvestigations() throws Exception {
         String body = json.writeValueAsString(new StartPolicyInvestigationRequest(candidate.getId(), scheme.getId()));
+        long runCountBefore = runs.count();
         mockMvc.perform(post(base()).with(user(citizen)).header("Idempotency-Key", "citizen-attempt-123")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get(base()).with(user(citizen))).andExpect(status().isForbidden());
-        assertEquals(0, runs.count());
+        assertEquals(runCountBefore, runs.count());
     }
 
     @Test
     void liveModeFailsSafelyWhenProviderIsDisabled() throws Exception {
         String body = json.writeValueAsString(new StartPolicyInvestigationRequest(
                 candidate.getId(), scheme.getId(), AgentExecutionMode.LIVE_MODEL));
-        mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", "live-disabled-" + UUID.randomUUID())
+        String response = mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", "live-disabled-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.executionMode").value("LIVE_MODEL"))
                 .andExpect(jsonPath("$.status").value("FAILED"))
                 .andExpect(jsonPath("$.failureMessage", org.hamcrest.Matchers.containsString("disabled")))
-                .andExpect(jsonPath("$.modelCallCount").value(0));
+                .andExpect(jsonPath("$.modelCallCount").value(0))
+                .andReturn().getResponse().getContentAsString();
+        UUID failedRunId = UUID.fromString(json.readTree(response).get("id").asText());
+        mockMvc.perform(post(base() + "/{runId}/retry", failedRunId).with(user(admin))
+                        .param("executionMode", "DETERMINISTIC_FIXTURE")
+                        .header("Idempotency-Key", "retry-fixture-" + UUID.randomUUID()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.executionMode").value("DETERMINISTIC_FIXTURE"));
         assertEquals(0, policyVersions.findBySchemeIdOrderByVersionNumberDesc(scheme.getId()).stream()
                 .filter(version -> version.getStatus() != PolicyVersionStatus.PUBLISHED).count());
     }
@@ -158,12 +168,14 @@ class AgentInvestigationControllerIntegrationTest {
         candidates.saveAndFlush(candidate);
         Scheme other = scheme();
         String body = json.writeValueAsString(new StartPolicyInvestigationRequest(candidate.getId(), other.getId()));
-        mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", "cross-scheme-" + UUID.randomUUID())
+        String response = mockMvc.perform(post(base()).with(user(admin)).header("Idempotency-Key", "cross-scheme-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("FAILED"))
-                .andExpect(jsonPath("$.failureMessage", org.hamcrest.Matchers.containsString("conflicts")));
-        assertEquals(AgentRunStatus.FAILED, runs.findAll().getFirst().getStatus());
-        assertEquals(2, events.countByRunId(runs.findAll().getFirst().getId()));
+                .andExpect(jsonPath("$.failureMessage", org.hamcrest.Matchers.containsString("conflicts")))
+                .andReturn().getResponse().getContentAsString();
+        UUID runId = UUID.fromString(json.readTree(response).get("id").asText());
+        assertEquals(AgentRunStatus.FAILED, runs.findById(runId).orElseThrow().getStatus());
+        assertEquals(2, events.countByRunId(runId));
     }
 
     private String base() { return "/api/v1/admin/ai-investigations"; }

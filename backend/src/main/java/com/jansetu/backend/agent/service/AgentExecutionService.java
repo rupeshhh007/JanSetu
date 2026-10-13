@@ -29,6 +29,7 @@ public class AgentExecutionService {
     private final SchemeRepository schemes;
     private final PolicyInvestigationAgent agent;
     private final AgentToolRegistry tools;
+    private final AgentRunStore store;
     private final Clock clock;
     private final int maxToolCalls;
     private final Duration maxDuration;
@@ -38,18 +39,18 @@ public class AgentExecutionService {
     @Autowired
     public AgentExecutionService(PolicyAgentRunRepository runs, PolicyAgentExecutionEventRepository events,
                                  SourceChangeCandidateRepository candidates, SchemeRepository schemes,
-                                 PolicyInvestigationAgent agent, AgentToolRegistry tools,
+                                 PolicyInvestigationAgent agent, AgentToolRegistry tools, AgentRunStore store,
                                  @Value("${jansetu.agent.max-tool-calls:12}") int maxToolCalls,
                                  @Value("${jansetu.agent.max-duration-seconds:30}") long maxDurationSeconds,
                                  @Value("${jansetu.agent.max-model-calls:12}") int maxModelCalls,
                                  @Value("${jansetu.agent.max-estimated-tokens:6000}") int maxEstimatedTokens) {
-        this(runs, events, candidates, schemes, agent, tools, Clock.systemUTC(), maxToolCalls,
+        this(runs, events, candidates, schemes, agent, tools, store, Clock.systemUTC(), maxToolCalls,
                 Duration.ofSeconds(maxDurationSeconds), maxModelCalls, maxEstimatedTokens);
     }
 
     AgentExecutionService(PolicyAgentRunRepository runs, PolicyAgentExecutionEventRepository events,
                           SourceChangeCandidateRepository candidates, SchemeRepository schemes,
-                          PolicyInvestigationAgent agent, AgentToolRegistry tools, Clock clock,
+                          PolicyInvestigationAgent agent, AgentToolRegistry tools, AgentRunStore store, Clock clock,
                           int maxToolCalls, Duration maxDuration, int maxModelCalls, int maxEstimatedTokens) {
         this.runs = runs;
         this.events = events;
@@ -57,6 +58,7 @@ public class AgentExecutionService {
         this.schemes = schemes;
         this.agent = agent;
         this.tools = tools;
+        this.store = store;
         this.clock = clock;
         this.maxToolCalls = Math.max(1, Math.min(maxToolCalls, 20));
         this.maxDuration = maxDuration;
@@ -64,40 +66,24 @@ public class AgentExecutionService {
         this.maxEstimatedTokens = Math.max(0, Math.min(maxEstimatedTokens, 50_000));
     }
 
-    @Transactional
     public PolicyAgentRun start(UUID candidateId, UUID schemeId, String idempotencyKey, User actor) {
         return start(candidateId, schemeId, AgentExecutionMode.DETERMINISTIC_FIXTURE, idempotencyKey, actor);
     }
 
-    @Transactional
     public PolicyAgentRun start(UUID candidateId, UUID schemeId, AgentExecutionMode mode,
                                 String idempotencyKey, User actor) {
         authorize(actor);
         String key = normalizeKey(idempotencyKey);
-        Optional<PolicyAgentRun> existing = runs.findByStartedByIdAndIdempotencyKey(actor.getId(), key);
-        if (existing.isPresent()) return existing.get();
-
         SourceChangeCandidate candidate = candidates.findById(candidateId)
                 .orElseThrow(() -> new PolicyInvestigationException("The source change candidate does not exist."));
         Scheme scheme = schemes.findById(schemeId)
                 .orElseThrow(() -> new PolicyInvestigationException("The selected scheme does not exist."));
-        PolicyAgentRun run = new PolicyAgentRun();
-        run.setSourceCandidate(candidate);
-        run.setScheme(scheme);
-        run.setStartedBy(actor);
-        run.setExecutionMode(mode == null ? AgentExecutionMode.DETERMINISTIC_FIXTURE : mode);
-        run.setStatus(AgentRunStatus.RUNNING);
-        run.setIdempotencyKey(key);
-        run.setMaxToolCalls(maxToolCalls);
-        run.setMaxModelCalls(run.getExecutionMode() == AgentExecutionMode.LIVE_MODEL ? maxModelCalls : 0);
-        run.setMaxEstimatedTokens(run.getExecutionMode() == AgentExecutionMode.LIVE_MODEL ? maxEstimatedTokens : 0);
-        run.setStartedAt(clock.instant());
-        run = runs.saveAndFlush(run);
-        append(run, AgentEventType.RUN_STARTED, null, AgentEventOutcome.SUCCESS, null, List.of(),
-                Map.of("mode", run.getExecutionMode().name(), "maxToolCalls", maxToolCalls,
-                        "maxModelCalls", run.getMaxModelCalls(), "maxEstimatedTokens", run.getMaxEstimatedTokens()));
-        execute(run, actor);
-        return run;
+        AgentExecutionMode resolvedMode = mode == null ? AgentExecutionMode.DETERMINISTIC_FIXTURE : mode;
+        AgentRunStore.StartedRun started = store.begin(candidate, scheme, actor, resolvedMode, key,
+                maxToolCalls, maxModelCalls, maxEstimatedTokens);
+        if (!started.created()) return started.run();
+        execute(started.run(), actor);
+        return get(started.run().getId(), actor);
     }
 
     private void execute(PolicyAgentRun run, User actor) {
@@ -134,9 +120,10 @@ public class AgentExecutionService {
                     proposal = agent.buildProposal(run.getId(), run.getSourceCandidate().getId(), run.getScheme().getId(),
                             observations, validationIssues);
                 }
-                append(run, tool == AgentToolName.VALIDATE_POLICY_PROPOSAL
+                store.recordTool(run.getId(), run.getToolCallCount(), run.getModelCallCount(),
+                        run.getEstimatedTokensUsed(), tool == AgentToolName.VALIDATE_POLICY_PROPOSAL
                                 ? AgentEventType.VALIDATION_COMPLETED : AgentEventType.TOOL_EXECUTED,
-                        tool.name(), AgentEventOutcome.SUCCESS, durationMs, observation.evidenceReferences(),
+                        tool.name(), durationMs, observation.evidenceReferences(),
                         Map.of("observationType", observation.value().getNodeType().name()));
             }
             proposal = agent.buildProposal(run.getId(), run.getSourceCandidate().getId(), run.getScheme().getId(),
@@ -146,20 +133,10 @@ public class AgentExecutionService {
                     proposal.snapshotIds(), proposal.previousPolicyVersionId(), proposal.proposedChangeSummary(),
                     proposal.proposedPolicyRule(), proposal.evidenceCitations(), proposal.unverifiedClaims(),
                     proposal.validationIssues(), true, proposal.recommendedNextAction(), proposal.deterministicFixture());
-            run.setResult(completed);
-            run.setStatus(AgentRunStatus.COMPLETED);
-            run.setCompletedAt(clock.instant());
-            append(run, AgentEventType.RUN_COMPLETED, null, AgentEventOutcome.SUCCESS, null,
-                    completed.snapshotIds(), Map.of("valid", completed.validationIssues().isEmpty(),
-                            "publicationPerformed", false));
+            store.complete(run.getId(), completed);
         } catch (RuntimeException failure) {
-            run.setStatus(AgentRunStatus.FAILED);
-            run.setFailureMessage(safeMessage(failure));
-            run.setCompletedAt(clock.instant());
-            append(run, AgentEventType.RUN_FAILED, null, AgentEventOutcome.ERROR, null, List.of(),
-                    Map.of("message", safeMessage(failure)));
+            store.fail(run.getId(), safeMessage(failure));
         }
-        runs.save(run);
     }
 
     @Transactional(readOnly = true)
@@ -181,16 +158,21 @@ public class AgentExecutionService {
         return events.findByRunIdOrderBySequenceNumber(runId);
     }
 
-    @Transactional
     public PolicyAgentRun cancel(UUID runId, User actor) {
         PolicyAgentRun run = get(runId, actor);
         if (run.getStatus() != AgentRunStatus.RUNNING) {
             throw new PolicyInvestigationException("Only a running investigation can be cancelled.");
         }
-        run.setStatus(AgentRunStatus.CANCELLED);
-        run.setCancelledAt(clock.instant());
-        append(run, AgentEventType.RUN_CANCELLED, null, AgentEventOutcome.SUCCESS, null, List.of(), Map.of());
-        return runs.save(run);
+        return store.cancel(runId);
+    }
+
+    public PolicyAgentRun retry(UUID runId, AgentExecutionMode requestedMode, String idempotencyKey, User actor) {
+        PolicyAgentRun previous = get(runId, actor);
+        if (previous.getStatus() == AgentRunStatus.RUNNING) {
+            throw new PolicyInvestigationException("Cancel the running investigation before retrying it.");
+        }
+        AgentExecutionMode mode = requestedMode == null ? previous.getExecutionMode() : requestedMode;
+        return start(previous.getSourceCandidate().getId(), previous.getScheme().getId(), mode, idempotencyKey, actor);
     }
 
     private List<PolicyValidationIssue> readValidationIssues(JsonNode observation) {
@@ -211,21 +193,6 @@ public class AgentExecutionService {
         if (run.getStatus() == AgentRunStatus.CANCELLED) {
             throw new PolicyInvestigationException("The investigation was cancelled.");
         }
-    }
-
-    private void append(PolicyAgentRun run, AgentEventType type, String toolName, AgentEventOutcome outcome,
-                        Long durationMs, List<UUID> evidence, Map<String, Object> details) {
-        PolicyAgentExecutionEvent event = new PolicyAgentExecutionEvent();
-        event.setRun(run);
-        event.setSequenceNumber((int) events.countByRunId(run.getId()) + 1);
-        event.setEventType(type);
-        event.setToolName(toolName);
-        event.setOutcome(outcome);
-        event.setDurationMs(durationMs);
-        event.setEvidenceReferences(evidence);
-        event.setDetails(details);
-        event.setRecordedAt(clock.instant());
-        events.save(event);
     }
 
     private void authorize(User actor) {

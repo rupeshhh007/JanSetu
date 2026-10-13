@@ -36,7 +36,7 @@ PostgreSQL rejects updates or deletes to execution events through an append-only
 
 ## Interruptions, retries, and limits
 
-Every run has a maximum of 12 tool calls by default and a 30-second execution limit. Live runs also have model-call and estimated-token budgets. All values are capped server-side. Failures move the run to `FAILED`, retain safe failure evidence, and leave the source candidate and policy lifecycle untouched. Repeating a start request with the same administrator and `Idempotency-Key` returns the original run. A recovered `RUNNING` run can be cancelled.
+Every run has a maximum of 12 tool calls by default and a 30-second execution limit. Live runs also have model-call and estimated-token budgets. All values are capped server-side. Failures move the run to `FAILED`, retain safe failure evidence, and leave the source candidate and policy lifecycle untouched. Repeating a start request with the same administrator and `Idempotency-Key` returns the original run. A recovered `RUNNING` run can be cancelled, and a terminal run can be retried as a new linked-scope run with a new idempotency key. The previous timeline is never rewritten.
 
 ## Safety boundaries
 

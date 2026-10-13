@@ -16,6 +16,7 @@ import com.jansetu.backend.source.SourceSnapshot;
 import com.jansetu.backend.source.change.SourceChangeCandidate;
 import com.jansetu.backend.source.change.SourceChangeCandidateRepository;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -44,6 +45,7 @@ public class AgentToolRegistry {
         this.json = json;
     }
 
+    @Transactional(readOnly = true)
     public AgentToolObservation execute(AgentToolName tool, UUID candidateId, UUID schemeId,
                                         PolicyInvestigationResult proposal, User actor) {
         authorize(actor, tool);
