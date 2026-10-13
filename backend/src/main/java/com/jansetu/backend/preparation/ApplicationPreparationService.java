@@ -186,6 +186,50 @@ public class ApplicationPreparationService {
                     "Confirm the official application portal",
                     "No official handoff link is recorded. Verify the submission route with the authority.", false, evidence));
         }
+        appendEligibilityTasks(session, profile, evidence, generated);
+        tasks.saveAll(generated);
+        if (refreshed) record(session, actor, PreparationHistoryEventType.REQUIREMENTS_REFRESHED, null,
+                Map.of("policyVersionId", session.getPolicyVersion() == null ? "none" : session.getPolicyVersion().getId().toString()));
+        if (session.getStatus() != PreparationStatus.CITIZEN_REPORTED_APPLICATION) {
+            session.setStatus(PreparationStatus.PREPARING); session.setReadyAt(null); updateReadiness(session, actor);
+        }
+    }
+
+    /**
+     * Prefer the effective, human-published policy version. The legacy catalogue
+     * adapter is only used where no versioned policy has been recorded.
+     */
+    private void appendEligibilityTasks(ApplicationPreparationSession session, CitizenProfile profile,
+                                        List<PreparationEvidenceReference> evidence,
+                                        List<ApplicationPreparationTask> generated) {
+        PolicyVersion policy = session.getPolicyVersion();
+        if (policy != null) {
+            var result = policyEngine.evaluate(policy.getPolicyRule(),
+                    new PolicyEvaluationContext(factResolver.resolve(profile), LocalDate.now(clock)));
+            PreparationTaskStatus status = switch (result.result()) {
+                case SATISFIED -> PreparationTaskStatus.COMPLETE;
+                case FAILED -> PreparationTaskStatus.INCOMPLETE;
+                case UNKNOWN -> PreparationTaskStatus.UNKNOWN;
+                case NOT_APPLICABLE -> PreparationTaskStatus.CONDITIONAL;
+            };
+            String state = session.getScheme().getState();
+            if (state != null && !state.isBlank() && !state.equalsIgnoreCase("India")
+                    && !state.equalsIgnoreCase("Central")
+                    && (profile.getState() == null || !state.equalsIgnoreCase(profile.getState().trim()))) {
+                status = PreparationTaskStatus.INCOMPLETE;
+            }
+            generated.add(task(session, key(PreparationTaskType.ELIGIBILITY, "published-policy"),
+                    PreparationTaskType.ELIGIBILITY, status, "Published policy eligibility",
+                    "Evaluated against the recorded effective policy. Review the cited rule and correct profile information if needed.",
+                    false, evidence));
+            if (result.result() == PolicyResult.UNKNOWN) {
+                result.missingFacts().forEach(fact -> generated.add(task(session,
+                        key(PreparationTaskType.PROFILE_FACT, fact.name()), PreparationTaskType.PROFILE_FACT,
+                        PreparationTaskStatus.UNKNOWN, fact.displayName(),
+                        "Provide this missing fact in your citizen profile.", false, evidence)));
+            }
+            return;
+        }
         EligibilityEvaluation evaluation = eligibility.evaluateScheme(profile, session.getScheme());
         evaluation.matchedCriteria().forEach(value -> generated.add(task(session, key(PreparationTaskType.ELIGIBILITY, value),
                 PreparationTaskType.ELIGIBILITY, PreparationTaskStatus.COMPLETE, safe(value),
@@ -196,12 +240,6 @@ public class ApplicationPreparationService {
         evaluation.missingInformation().forEach(value -> generated.add(task(session, key(PreparationTaskType.PROFILE_FACT, value),
                 PreparationTaskType.PROFILE_FACT, PreparationTaskStatus.UNKNOWN, safe(value),
                 "Add the missing fact to your profile. JanSetu does not guess unavailable information.", false, evidence)));
-        tasks.saveAll(generated);
-        if (refreshed) record(session, actor, PreparationHistoryEventType.REQUIREMENTS_REFRESHED, null,
-                Map.of("policyVersionId", session.getPolicyVersion() == null ? "none" : session.getPolicyVersion().getId().toString()));
-        if (session.getStatus() != PreparationStatus.CITIZEN_REPORTED_APPLICATION) {
-            session.setStatus(PreparationStatus.PREPARING); session.setReadyAt(null); updateReadiness(session, actor);
-        }
     }
 
     private void updateReadiness(ApplicationPreparationSession session, User actor) {
