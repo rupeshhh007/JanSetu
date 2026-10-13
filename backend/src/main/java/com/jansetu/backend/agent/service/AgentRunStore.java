@@ -29,7 +29,16 @@ public class AgentRunStore {
     public StartedRun begin(SourceChangeCandidate candidate, Scheme scheme, User actor, AgentExecutionMode mode,
                             String key, int maxToolCalls, int maxModelCalls, int maxEstimatedTokens) {
         var existing = runs.findByStartedByIdAndIdempotencyKey(actor.getId(), key);
-        if (existing.isPresent()) return new StartedRun(existing.get(), false);
+        if (existing.isPresent()) {
+            PolicyAgentRun prior = existing.get();
+            if (!prior.getSourceCandidate().getId().equals(candidate.getId())
+                    || !prior.getScheme().getId().equals(scheme.getId())
+                    || prior.getExecutionMode() != mode) {
+                throw new PolicyInvestigationConflictException(
+                        "This Idempotency-Key was already used for a different investigation scope or execution mode.");
+            }
+            return new StartedRun(prior, false);
+        }
         PolicyAgentRun run = new PolicyAgentRun();
         run.setSourceCandidate(candidate); run.setScheme(scheme); run.setStartedBy(actor); run.setExecutionMode(mode);
         run.setStatus(AgentRunStatus.RUNNING); run.setIdempotencyKey(key); run.setMaxToolCalls(maxToolCalls);
