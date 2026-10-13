@@ -30,6 +30,9 @@ public class PolicyProposalValidator {
                                                 UUID expectedCandidateId,
                                                 UUID expectedSchemeId,
                                                 Set<UUID> allowedSnapshotIds) {
+        if (proposal == null) {
+            return List.of(issue("PROPOSAL_REQUIRED", "A structured policy investigation proposal is required."));
+        }
         List<PolicyValidationIssue> issues = new ArrayList<>(rules.validate(proposal.proposedPolicyRule()));
         if (!expectedCandidateId.equals(proposal.sourceCandidateId())) {
             issues.add(issue("CANDIDATE_SCOPE_MISMATCH", "The proposal references a different source candidate."));
