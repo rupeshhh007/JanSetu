@@ -31,12 +31,7 @@ public class AgentRunStore {
         var existing = runs.findByStartedByIdAndIdempotencyKey(actor.getId(), key);
         if (existing.isPresent()) {
             PolicyAgentRun prior = existing.get();
-            if (!prior.getSourceCandidate().getId().equals(candidate.getId())
-                    || !prior.getScheme().getId().equals(scheme.getId())
-                    || prior.getExecutionMode() != mode) {
-                throw new PolicyInvestigationConflictException(
-                        "This Idempotency-Key was already used for a different investigation scope or execution mode.");
-            }
+            requireMatchingScope(prior, candidate, scheme, mode);
             return new StartedRun(prior, false);
         }
         PolicyAgentRun run = new PolicyAgentRun();
@@ -50,6 +45,27 @@ public class AgentRunStore {
                 Map.of("mode", mode.name(), "maxToolCalls", maxToolCalls,
                         "maxModelCalls", run.getMaxModelCalls(), "maxEstimatedTokens", run.getMaxEstimatedTokens()));
         return new StartedRun(run, true);
+    }
+
+    /** Read the winning row in a fresh transaction after a concurrent unique-key insert lost. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<PolicyAgentRun> replayExisting(User actor, String key,
+            SourceChangeCandidate candidate, Scheme scheme, AgentExecutionMode mode) {
+        return runs.findByStartedByIdAndIdempotencyKey(actor.getId(), key)
+                .map(prior -> {
+                    requireMatchingScope(prior, candidate, scheme, mode);
+                    return prior;
+                });
+    }
+
+    private void requireMatchingScope(PolicyAgentRun prior, SourceChangeCandidate candidate,
+                                      Scheme scheme, AgentExecutionMode mode) {
+        if (!prior.getSourceCandidate().getId().equals(candidate.getId())
+                || !prior.getScheme().getId().equals(scheme.getId())
+                || prior.getExecutionMode() != mode) {
+            throw new PolicyInvestigationConflictException(
+                    "This Idempotency-Key was already used for a different investigation scope or execution mode.");
+        }
     }
 
     @Transactional

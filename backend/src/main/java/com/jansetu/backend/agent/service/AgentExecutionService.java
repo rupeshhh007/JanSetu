@@ -81,8 +81,16 @@ public class AgentExecutionService {
         Scheme scheme = schemes.findById(schemeId)
                 .orElseThrow(() -> new PolicyInvestigationException("The selected scheme does not exist."));
         AgentExecutionMode resolvedMode = mode == null ? AgentExecutionMode.DETERMINISTIC_FIXTURE : mode;
-        AgentRunStore.StartedRun started = store.begin(candidate, scheme, actor, resolvedMode, key,
-                maxToolCalls, maxModelCalls, maxEstimatedTokens);
+        AgentRunStore.StartedRun started;
+        try {
+            started = store.begin(candidate, scheme, actor, resolvedMode, key,
+                    maxToolCalls, maxModelCalls, maxEstimatedTokens);
+        } catch (org.springframework.dao.DataIntegrityViolationException conflict) {
+            // Unique-key concurrent insert: the winning transaction has committed by
+            // the time PostgreSQL reports the duplicate. Replay in a new transaction.
+            return store.replayExisting(actor, key, candidate, scheme, resolvedMode)
+                    .orElseThrow(() -> conflict);
+        }
         if (!started.created()) return started.run();
         execute(started.run(), actor);
         return get(started.run().getId(), actor);
