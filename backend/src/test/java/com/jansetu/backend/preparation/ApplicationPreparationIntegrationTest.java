@@ -244,6 +244,16 @@ class ApplicationPreparationIntegrationTest {
                         .value(org.hamcrest.Matchers.contains("INCOMPLETE")));
     }
 
+    @Test
+    void repeatJourneyStartReturnsSameSessionWithoutDuplicateHistory() throws Exception {
+        JsonNode original = start(citizen);
+        JsonNode repeated = start(citizen);
+        assertEquals(original.get("id").asText(), repeated.get("id").asText());
+        assertEquals(1, sessions.count());
+        assertEquals(1, history.findBySessionIdOrderByRecordedAtDesc(
+                UUID.fromString(original.get("id").asText())).size());
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
