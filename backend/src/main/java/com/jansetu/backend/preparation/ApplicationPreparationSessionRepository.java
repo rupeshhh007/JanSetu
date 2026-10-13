@@ -19,7 +19,6 @@ public interface ApplicationPreparationSessionRepository extends JpaRepository<A
     Optional<ApplicationPreparationSession> findByProfileIdAndSchemeId(UUID profileId, UUID schemeId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"profile", "profile.user", "scheme", "policyVersion"})
     @Query("select session from ApplicationPreparationSession session where session.id = :id and session.profile.id = :profileId")
     Optional<ApplicationPreparationSession> lockOwned(@Param("id") UUID id, @Param("profileId") UUID profileId);
 }
