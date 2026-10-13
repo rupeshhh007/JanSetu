@@ -186,12 +186,16 @@ public class ApplicationPreparationService {
                     "This scheme is not currently published",
                     "JanSetu cannot establish readiness for an unpublished or archived scheme.", false, evidence));
         }
+        Set<String> seenDocuments = new HashSet<>();
         for (String document : session.getScheme().getRequiredDocuments()) {
             if (document == null || document.isBlank()) continue;
             String key = key(PreparationTaskType.DOCUMENT, document);
-            generated.add(task(session, key, PreparationTaskType.DOCUMENT,
-                    completedDocuments.contains(key) ? PreparationTaskStatus.COMPLETE : PreparationTaskStatus.INCOMPLETE,
-                    document, "Have this document ready for the official portal. Do not upload it to JanSetu.", true, documentEvidence(session)));
+            if (!seenDocuments.add(key)) continue;
+            ApplicationPreparationTask generatedDocument = task(session, key, PreparationTaskType.DOCUMENT,
+                    completedDocuments.containsKey(key) ? PreparationTaskStatus.COMPLETE : PreparationTaskStatus.INCOMPLETE,
+                    document, "Have this document ready for the official portal. Do not upload it to JanSetu.", true, documentEvidence(session));
+            if (completedDocuments.containsKey(key)) generatedDocument.setCompletedAt(completedDocuments.get(key));
+            generated.add(generatedDocument);
         }
         if (session.getScheme().getRequiredDocuments().stream().noneMatch(document -> document != null && !document.isBlank())) {
             generated.add(task(session, key(PreparationTaskType.UNKNOWN_REQUIREMENT, "documents"), PreparationTaskType.UNKNOWN_REQUIREMENT,
