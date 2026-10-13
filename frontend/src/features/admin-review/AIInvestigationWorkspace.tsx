@@ -98,7 +98,7 @@ export function AIInvestigationWorkspace({ candidates, schemes }: Props) {
           <p className="noticeboard-kicker text-primary">04 / AI-assisted investigation</p>
           <h2 id="ai-investigation-heading" className="mt-2 text-3xl">Policy intelligence workspace</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-text-muted">
-            Gather source evidence, inspect policy history, and produce a cited proposal for human review. AI suggestions remain drafts; deterministic validation and administrator decisions stay separate from publication.
+            Collect source evidence and current policy for human investigation. The live model selects bounded read tools; it does not automatically infer a new policy rule. Every proposed amendment requires explicit administrator editing, validation and review.
           </p>
         </div>
         <ProcessLegend />
