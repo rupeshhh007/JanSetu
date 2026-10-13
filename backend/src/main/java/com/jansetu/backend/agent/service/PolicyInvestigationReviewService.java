@@ -40,6 +40,10 @@ public class PolicyInvestigationReviewService {
         if (run.getReviewStatus() != AgentReviewStatus.PENDING_REVIEW) {
             throw new PolicyInvestigationConflictException("This investigation already has a human review decision.");
         }
+        if (request == null || request.decision() == null || request.reason() == null
+                || request.reason().isBlank() || request.reason().length() > 1000) {
+            throw new PolicyInvestigationException("A review decision and reason of at most 1000 characters are required.");
+        }
         String reason = request.reason().trim();
         if (request.decision() == AgentReviewDecision.REJECT) {
             run.setReviewStatus(AgentReviewStatus.REJECTED);
