@@ -19,7 +19,7 @@ export function PreparationWorkspace({ preparation, compact = false }: { prepara
       </div>
       <div className="min-w-40">
         <div className="flex justify-between text-xs"><span>Preparation</span><strong>{preparation.progressPercent}%</strong></div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-label={`${preparation.progressPercent}% complete`}>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Preparation completeness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={preparation.progressPercent}>
           <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${preparation.progressPercent}%` }} />
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">{preparation.completedTasks} of {preparation.totalTasks} requirements complete</p>
