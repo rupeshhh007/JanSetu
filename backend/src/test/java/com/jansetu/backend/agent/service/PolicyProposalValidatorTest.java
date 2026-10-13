@@ -90,6 +90,12 @@ class PolicyProposalValidatorTest {
                 .stream().anyMatch(issue -> issue.code().equals("PROPOSAL_REQUIRED")));
     }
 
+    @Test
+    void acceptsExactCitationProvenance() {
+        assertTrue(validator.validate(proposal(List.of(validCitation())), candidateId, schemeId, Set.of(snapshotId))
+                .isEmpty());
+    }
+
     private PolicyInvestigationResult proposal(List<EvidenceCitation> citations) {
         return new PolicyInvestigationResult(UUID.randomUUID(), AgentRunStatus.COMPLETED, candidateId, schemeId,
                 List.of(snapshotId), null, "Synthetic policy proposal",
