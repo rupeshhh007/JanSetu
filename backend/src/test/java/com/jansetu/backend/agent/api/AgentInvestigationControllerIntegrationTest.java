@@ -95,6 +95,7 @@ class AgentInvestigationControllerIntegrationTest {
                         .value(candidate.getNewSnapshot().getId().toString()))
                 .andExpect(jsonPath("$.result.validationIssues").isEmpty())
                 .andExpect(jsonPath("$.result.reviewRequired").value(true))
+                .andExpect(jsonPath("$.result.deterministicFixture").value(true))
                 .andReturn().getResponse().getContentAsString();
         UUID runId = UUID.fromString(json.readTree(response).get("id").asText());
 
