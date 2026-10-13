@@ -90,7 +90,7 @@ public class ApplicationPreparationService {
         session = sessions.saveAndFlush(session);
         record(session, identity.user(), PreparationHistoryEventType.JOURNEY_STARTED, null,
                 Map.of("schemeId", scheme.getId().toString()));
-        rebuildTasks(session, identity.profile(), identity.user(), Set.of(), false);
+        rebuildTasks(session, identity.profile(), identity.user(), Map.of(), false);
         return response(session);
     }
 
