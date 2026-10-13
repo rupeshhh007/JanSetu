@@ -40,6 +40,9 @@ public class PolicyProposalValidator {
         if (proposal.evidenceCitations().isEmpty()) {
             issues.add(issue("EVIDENCE_REQUIRED", "At least one exact source citation is required."));
         }
+        if (proposal.evidenceCitations().size() > 10) {
+            issues.add(issue("TOO_MANY_CITATIONS", "A policy investigation may cite at most ten bounded evidence spans."));
+        }
         for (EvidenceCitation citation : proposal.evidenceCitations()) {
             validateCitation(citation, allowedSnapshotIds, issues);
         }
