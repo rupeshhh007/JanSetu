@@ -170,6 +170,12 @@ public class ApplicationPreparationService {
                     PreparationTaskStatus.UNKNOWN, "Confirm document requirements on the official portal",
                     "JanSetu has no verified document list for this scheme.", false, evidence));
         }
+        if (session.getScheme().getOfficialUrl() == null || session.getScheme().getOfficialUrl().isBlank()) {
+            generated.add(task(session, key(PreparationTaskType.UNKNOWN_REQUIREMENT, "official-portal"),
+                    PreparationTaskType.UNKNOWN_REQUIREMENT, PreparationTaskStatus.UNKNOWN,
+                    "Confirm the official application portal",
+                    "No official handoff link is recorded. Verify the submission route with the authority.", false, evidence));
+        }
         EligibilityEvaluation evaluation = eligibility.evaluateScheme(profile, session.getScheme());
         evaluation.matchedCriteria().forEach(value -> generated.add(task(session, key(PreparationTaskType.ELIGIBILITY, value),
                 PreparationTaskType.ELIGIBILITY, PreparationTaskStatus.COMPLETE, safe(value),
