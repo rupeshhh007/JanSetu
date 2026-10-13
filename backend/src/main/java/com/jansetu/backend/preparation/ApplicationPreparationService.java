@@ -54,8 +54,11 @@ public class ApplicationPreparationService {
                                          CitizenProfileService profiles,
                                          SchemeRepository schemes,
                                          PolicyVersionRepository policies,
-                                         EligibilityEvaluator eligibility) {
-        this(sessions, tasks, history, currentUsers, profiles, schemes, policies, eligibility, Clock.systemUTC());
+                                         EligibilityEvaluator eligibility,
+                                         PolicyEvaluationEngine policyEngine,
+                                         CitizenProfilePolicyFactResolver factResolver) {
+        this(sessions, tasks, history, currentUsers, profiles, schemes, policies, eligibility,
+                policyEngine, factResolver, Clock.systemUTC());
     }
 
     ApplicationPreparationService(ApplicationPreparationSessionRepository sessions,
