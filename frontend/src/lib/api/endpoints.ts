@@ -15,6 +15,7 @@ export const API_ENDPOINTS = {
 
   GET_APPLICATIONS: "/api/v1/applications",
   APPLY_TO_SCHEME: "/api/v1/applications",
+  PREPARATIONS: "/api/v1/preparations",
   ADMIN_APPLICATIONS: "/api/v1/admin/applications",
   ADMIN_SOURCE_CHANGES: "/api/v1/admin/source-change-candidates",
   ADMIN_AUDIT: "/api/v1/admin/audit",
