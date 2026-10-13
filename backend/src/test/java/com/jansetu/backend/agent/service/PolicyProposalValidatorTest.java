@@ -68,6 +68,14 @@ class PolicyProposalValidatorTest {
                 .stream().anyMatch(issue -> issue.code().equals("TOO_MANY_CITATIONS")));
     }
 
+    @Test
+    void refusesIncorrectEvidenceHash() {
+        EvidenceCitation spoof = new EvidenceCitation(snapshotId, "Official fixture",
+                "https://india.gov.in/fixture", "sha256:wrong", "Income requirement is 300000.");
+        assertTrue(validator.validate(proposal(List.of(spoof)), candidateId, schemeId, Set.of(snapshotId))
+                .stream().anyMatch(issue -> issue.code().equals("EVIDENCE_HASH_MISMATCH")));
+    }
+
     private PolicyInvestigationResult proposal(List<EvidenceCitation> citations) {
         return new PolicyInvestigationResult(UUID.randomUUID(), AgentRunStatus.COMPLETED, candidateId, schemeId,
                 List.of(snapshotId), null, "Synthetic policy proposal",
