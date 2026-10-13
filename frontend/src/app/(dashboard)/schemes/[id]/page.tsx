@@ -14,13 +14,9 @@ import {
 } from "lucide-react";
 import { useSchemes } from "@/features/schemes/hooks/useSchemes";
 import { getSchemeEligibility } from "@/features/schemes/api/schemesApi";
-import { useApplications } from "@/features/applications/hooks/useApplications";
-import { useApplyToScheme } from "@/features/applications/hooks/useApplyToScheme";
-import {
-  useDocumentChecklist,
-  useSavedSchemes,
-  useWorkspaceStore,
-} from "@/store/useWorkspaceStore";
+import { useSavedSchemes, useWorkspaceStore } from "@/store/useWorkspaceStore";
+import { usePreparations, useStartPreparation } from "@/features/preparations/hooks";
+import { PreparationWorkspace } from "@/features/preparations/PreparationWorkspace";
 export default function SchemeDetail({
   params,
 }: {
@@ -34,14 +30,11 @@ export default function SchemeDetail({
     queryFn: () => getSchemeEligibility(id),
     enabled: !!scheme,
   });
-  const apps = useApplications();
-  const apply = useApplyToScheme();
+  const preparations = usePreparations();
+  const startPreparation = useStartPreparation();
   const saved = useSavedSchemes().includes(id);
-  const checked = useDocumentChecklist(id);
-  const { toggleSaved, toggleDocument } = useWorkspaceStore();
-  const active = apps.data?.some(
-    (a) => a.schemeId === id && !["REJECTED", "WITHDRAWN"].includes(a.status),
-  );
+  const { toggleSaved } = useWorkspaceStore();
+  const preparation = preparations.data?.find((item) => item.schemeId === id);
   if (catalogue.isPending) return <p role="status">Loading scheme…</p>;
   if (catalogue.isError)
     return (
@@ -64,9 +57,6 @@ export default function SchemeDetail({
       </div>
     );
   const evaluation = eligibility.data;
-  const ready = scheme.requiredDocuments.filter((d) =>
-    checked.includes(d),
-  ).length;
   return (
     <div className="space-y-7 pb-10">
       <Link href="/schemes" className="text-link no-print">
@@ -139,39 +129,33 @@ export default function SchemeDetail({
               </p>
             )}
           </section>
-          <section className="paper-card p-6">
+          {preparation ? <PreparationWorkspace preparation={preparation} /> : <section className="paper-card p-6">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="editorial text-2xl">Your document checklist</h2>
+              <h2 className="editorial text-2xl">Known document requirements</h2>
               <span className="text-xs text-primary">
-                {ready}/{scheme.requiredDocuments.length} ready
+                {scheme.requiredDocuments.length} recorded
               </span>
             </div>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              Mark what you have ready. This checklist stays on this device; no
-              documents are uploaded.
+              Start a preparation journey to save progress across sessions. JanSetu never asks you to upload these documents.
             </p>
-            <div className="mt-5 divide-y">
+            <ul className="mt-5 divide-y">
               {scheme.requiredDocuments.map((document) => (
-                <label
+                <li
                   key={document}
-                  className="flex cursor-pointer items-start gap-3 py-4 text-sm"
+                  className="flex items-start gap-3 py-4 text-sm"
                 >
-                  <input
-                    className="mt-1 size-4 accent-primary"
-                    type="checkbox"
-                    checked={checked.includes(document)}
-                    onChange={() => toggleDocument(id, document)}
-                  />
+                  <CircleAlert size={16} className="mt-0.5 shrink-0 text-warning" />
                   <span>{document}</span>
-                </label>
+                </li>
               ))}
-            </div>
+            </ul>
             {!scheme.requiredDocuments.length && (
               <p className="mt-4 text-sm">
                 No document list is recorded. Contact the official department.
               </p>
             )}
-          </section>
+          </section>}
           <section className="paper-card p-6">
             <h2 className="editorial text-2xl">Source & freshness</h2>
             <p className="mt-3 text-sm">
@@ -266,37 +250,29 @@ export default function SchemeDetail({
               Create a JanSetu tracking record for preparation and local review.
               This does not submit an application to the government.
             </p>
-            {apps.isError && (
+            {preparations.isError && (
               <p role="alert" className="mt-3 text-sm">
-                Existing records are unavailable.{" "}
-                <button className="underline" onClick={() => apps.refetch()}>
+                Preparation records are unavailable.{" "}
+                <button className="underline" onClick={() => preparations.refetch()}>
                   Retry
                 </button>
               </p>
             )}
             <button
               disabled={
-                active ||
-                apply.isPending ||
-                apps.isPending ||
-                apps.isError ||
-                evaluation?.outcome !== "ELIGIBLE"
+                Boolean(preparation) || startPreparation.isPending || preparations.isPending || preparations.isError
               }
-              onClick={() => apply.mutate({ schemeId: id })}
+              onClick={() => startPreparation.mutate(id)}
               className="no-print mt-5 min-h-11 w-full rounded-lg bg-white px-4 text-sm font-semibold text-[#163d32] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {active
-                ? "Already in your applications"
-                : apply.isPending
-                  ? "Creating record…"
-                  : "Start tracking this scheme"}
+              {preparation ? "Preparation journey started" : startPreparation.isPending ? "Starting journey…" : "Start preparation journey"}
             </button>
-            {active && (
+            {preparation && (
               <Link
                 className="mt-3 inline-flex text-sm text-white underline"
                 href="/applications"
               >
-                View your record
+                View all preparation journeys
               </Link>
             )}
             {scheme.officialUrl && (

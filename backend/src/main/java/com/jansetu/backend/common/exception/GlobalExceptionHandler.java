@@ -16,6 +16,8 @@ import com.jansetu.backend.profile.fact.InvalidProfileFactException;
 import com.jansetu.backend.source.change.SourceChangeReviewException;
 import com.jansetu.backend.agent.service.PolicyInvestigationException;
 import com.jansetu.backend.agent.service.PolicyInvestigationConflictException;
+import com.jansetu.backend.preparation.PreparationException;
+import com.jansetu.backend.preparation.PreparationNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +62,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage());
     }
 
+    @ExceptionHandler(PreparationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePreparationNotFound(PreparationNotFoundException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Preparation Not Found", ex.getMessage());
+    }
+
     // Handle Conflict exceptions (409)
     @ExceptionHandler({DuplicateApplicationException.class, InvalidApplicationStatusTransitionException.class,
             PolicyLifecycleException.class})
@@ -81,6 +88,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SourceIntakeException.class)
     public ResponseEntity<ErrorResponse> handleSourceIntake(SourceIntakeException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Source Intake Rejected", ex.getMessage());
+    }
+
+    @ExceptionHandler(PreparationException.class)
+    public ResponseEntity<ErrorResponse> handlePreparation(PreparationException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Preparation Conflict", ex.getMessage());
     }
 
     @ExceptionHandler(PolicyInvestigationException.class)

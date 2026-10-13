@@ -9,15 +9,14 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useSchemes } from "@/features/schemes/hooks/useSchemes";
-import { useApplications } from "@/features/applications/hooks/useApplications";
 import { useProfile } from "@/features/citizen/hooks/useProfile";
 import { useSavedSchemes } from "@/store/useWorkspaceStore";
-import { APPLICATION_STATUS_META } from "@/lib/statusMeta";
 import { PolicyNotificationInbox } from "@/features/notifications/PolicyNotificationInbox";
+import { usePreparations } from "@/features/preparations/hooks";
 export default function DashboardPage() {
   const profile = useProfile();
   const schemes = useSchemes();
-  const applications = useApplications();
+  const preparations = usePreparations();
   const saved = useSavedSchemes();
   const steps = [
     {
@@ -36,7 +35,7 @@ export default function DashboardPage() {
       title: "Prepare your documents",
       description: "Open a scheme for its document checklist and next steps.",
       href: "/schemes",
-      done: (applications.data?.length ?? 0) > 0,
+      done: (preparations.data?.length ?? 0) > 0,
     },
   ];
   return (
@@ -103,10 +102,10 @@ export default function DashboardPage() {
             href: "/schemes?saved=1",
           },
           {
-            title: "Applications",
-            value: applications.data?.length,
-            loading: applications.isPending,
-            error: applications.isError,
+            title: "Preparation journeys",
+            value: preparations.data?.length,
+            loading: preparations.isPending,
+            error: preparations.isError,
             href: "/applications",
           },
         ].map((item) => (
@@ -128,34 +127,34 @@ export default function DashboardPage() {
       <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
         <section className="rounded-xl border bg-white p-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="editorial text-2xl">Your applications</h2>
+            <h2 className="editorial text-2xl">Your preparation journeys</h2>
             <Link className="text-link" href="/applications">
               View all <ArrowRight size={15} />
             </Link>
           </div>
-          {applications.isError ? (
+          {preparations.isError ? (
             <div role="alert" className="py-12 text-sm text-muted-foreground">
-              Application data is unavailable.{" "}
+              Preparation data is unavailable.{" "}
               <button
                 className="text-link"
-                onClick={() => applications.refetch()}
+                onClick={() => preparations.refetch()}
               >
                 Try again
               </button>
             </div>
-          ) : applications.isPending ? (
+          ) : preparations.isPending ? (
             <p role="status" className="py-12 text-muted-foreground">
-              Loading applications…
+              Loading preparation journeys…
             </p>
-          ) : applications.data?.length ? (
+          ) : preparations.data?.length ? (
             <div className="mt-5 divide-y">
-              {[...applications.data]
+              {[...preparations.data]
                 .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
                 .slice(0, 4)
                 .map((item) => (
                   <Link
                     href="/applications"
-                    key={item.applicationId}
+                    key={item.id}
                     className="flex items-center gap-4 py-4"
                   >
                     <FileText className="shrink-0 text-primary" size={23} />
@@ -164,7 +163,7 @@ export default function DashboardPage() {
                         {item.schemeName}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {APPLICATION_STATUS_META[item.status].label} ·{" "}
+                        {item.progressPercent}% ready ·{" "}
                         {new Date(item.updatedAt).toLocaleDateString("en-IN")}
                       </p>
                     </div>

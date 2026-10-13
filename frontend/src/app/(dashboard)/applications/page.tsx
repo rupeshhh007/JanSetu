@@ -5,8 +5,11 @@ import { ArrowRight, ClipboardList, Search } from "lucide-react";
 import { ApplicationGrid } from "@/features/applications/components/ApplicationGrid";
 import { ApplicationSkeleton } from "@/features/applications/components/ApplicationSkeleton";
 import { useApplications } from "@/features/applications/hooks/useApplications";
+import { usePreparations } from "@/features/preparations/hooks";
+import { PreparationWorkspace } from "@/features/preparations/PreparationWorkspace";
 export default function ApplicationsPage() {
   const query = useApplications();
+  const preparations = usePreparations();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("ALL");
   const applications = [...(query.data ?? [])]
@@ -61,6 +64,9 @@ export default function ApplicationsPage() {
           </select>
         </div>
       )}
+      {preparations.isPending ? <ApplicationSkeleton /> : preparations.isError ? <div role="alert" className="paper-card p-8">Couldn’t load preparation journeys. <button className="text-link" onClick={() => preparations.refetch()}>Try again</button></div>
+        : preparations.data?.length ? <section aria-labelledby="preparation-journeys-heading"><div className="mb-4"><p className="text-xs font-semibold uppercase tracking-[.16em] text-primary">Persisted preparation</p><h2 id="preparation-journeys-heading" className="editorial mt-1 text-3xl">Your preparation journeys</h2></div><div className="grid gap-5 lg:grid-cols-2">{preparations.data.map((preparation) => <PreparationWorkspace key={preparation.id} preparation={preparation} compact />)}</div></section> : null}
+      {(preparations.data?.length ?? 0) > 0 && <div className="border-t pt-6"><h2 className="editorial text-2xl">Legacy tracked applications</h2><p className="mt-2 text-xs text-muted-foreground">Older JanSetu review records remain available below.</p></div>}
       {query.isPending ? (
         <ApplicationSkeleton />
       ) : query.isError ? (
@@ -70,7 +76,7 @@ export default function ApplicationsPage() {
             Try again
           </button>
         </div>
-      ) : !query.data?.length ? (
+      ) : query.isSuccess && preparations.isSuccess && !query.data?.length && !preparations.data?.length ? (
         <div className="paper-card px-6 py-16 text-center">
           <ClipboardList
             size={34}
@@ -87,7 +93,7 @@ export default function ApplicationsPage() {
             Explore schemes <ArrowRight size={16} />
           </Link>
         </div>
-      ) : !applications.length ? (
+      ) : !query.data?.length ? null : !applications.length ? (
         <p className="paper-card p-10 text-center text-muted-foreground">
           No applications match these filters.
         </p>
