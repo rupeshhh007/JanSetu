@@ -188,7 +188,7 @@ public class ApplicationPreparationService {
             String key = key(PreparationTaskType.DOCUMENT, document);
             generated.add(task(session, key, PreparationTaskType.DOCUMENT,
                     completedDocuments.contains(key) ? PreparationTaskStatus.COMPLETE : PreparationTaskStatus.INCOMPLETE,
-                    document, "Have this document ready for the official portal. Do not upload it to JanSetu.", true, evidence));
+                    document, "Have this document ready for the official portal. Do not upload it to JanSetu.", true, documentEvidence(session)));
         }
         if (session.getScheme().getRequiredDocuments().isEmpty()) {
             generated.add(task(session, key(PreparationTaskType.UNKNOWN_REQUIREMENT, "documents"), PreparationTaskType.UNKNOWN_REQUIREMENT,
