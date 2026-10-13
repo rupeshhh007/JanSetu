@@ -40,6 +40,8 @@ public class ApplicationPreparationService {
     private final SchemeRepository schemes;
     private final PolicyVersionRepository policies;
     private final EligibilityEvaluator eligibility;
+    private final PolicyEvaluationEngine policyEngine;
+    private final CitizenProfilePolicyFactResolver factResolver;
     private final Clock clock;
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
