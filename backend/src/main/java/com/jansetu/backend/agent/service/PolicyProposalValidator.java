@@ -68,8 +68,10 @@ public class PolicyProposalValidator {
             issues.add(issue("EVIDENCE_NOT_FOUND", "A cited snapshot no longer exists."));
             return;
         }
-        String fullContent = new String(snapshot.getContentBytes(), StandardCharsets.UTF_8);
-        if (!snapshot.getContentExcerpt().contains(span) && !fullContent.contains(span)) {
+        String fullContent = snapshot.getContentBytes() == null ? ""
+                : new String(snapshot.getContentBytes(), StandardCharsets.UTF_8);
+        String excerpt = snapshot.getContentExcerpt() == null ? "" : snapshot.getContentExcerpt();
+        if (!excerpt.contains(span) && !fullContent.contains(span)) {
             issues.add(issue("EVIDENCE_SPAN_MISMATCH", "A citation is not an exact span of its immutable snapshot."));
         }
         if (!snapshot.getSourceNameAtCapture().equals(citation.sourceTitle())) {
