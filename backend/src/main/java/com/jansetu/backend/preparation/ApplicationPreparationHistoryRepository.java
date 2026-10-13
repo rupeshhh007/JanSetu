@@ -8,5 +8,6 @@ import java.util.UUID;
 
 public interface ApplicationPreparationHistoryRepository extends JpaRepository<ApplicationPreparationHistory, UUID> {
     @EntityGraph(attributePaths = "actor")
+    List<ApplicationPreparationHistory> findBySessionIdOrderByRecordedAtDesc(UUID sessionId);
     List<ApplicationPreparationHistory> findTop100BySessionIdOrderByRecordedAtDesc(UUID sessionId);
 }
