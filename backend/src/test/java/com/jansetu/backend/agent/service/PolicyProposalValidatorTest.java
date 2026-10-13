@@ -84,6 +84,12 @@ class PolicyProposalValidatorTest {
                 .stream().anyMatch(issue -> issue.code().equals("EVIDENCE_SPAN_MISMATCH")));
     }
 
+    @Test
+    void refusesNullProposalSafely() {
+        assertTrue(validator.validate(null, candidateId, schemeId, Set.of(snapshotId))
+                .stream().anyMatch(issue -> issue.code().equals("PROPOSAL_REQUIRED")));
+    }
+
     private PolicyInvestigationResult proposal(List<EvidenceCitation> citations) {
         return new PolicyInvestigationResult(UUID.randomUUID(), AgentRunStatus.COMPLETED, candidateId, schemeId,
                 List.of(snapshotId), null, "Synthetic policy proposal",
