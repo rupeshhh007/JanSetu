@@ -339,6 +339,10 @@ public class ApplicationPreparationService {
                 .getBytes(StandardCharsets.UTF_8));
     }
 
-    private String safe(String value) { return value.length() <= 500 ? value : value.substring(0, 500); }
+    private String safe(String value) {
+        if (value == null || value.isBlank()) return "Requirement not recorded";
+        String clean = value.strip();
+        return clean.length() <= 500 ? clean : clean.substring(0, 500);
+    }
     private record Identity(User user, CitizenProfile profile) { }
 }
