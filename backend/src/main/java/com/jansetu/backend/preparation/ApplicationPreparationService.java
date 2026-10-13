@@ -212,7 +212,7 @@ public class ApplicationPreparationService {
                                             boolean citizenCompletable, List<PreparationEvidenceReference> evidence) {
         ApplicationPreparationTask task = new ApplicationPreparationTask();
         task.setSession(session); task.setTaskKey(key); task.setTaskType(type); task.setStatus(status);
-        task.setTitle(title); task.setGuidance(guidance); task.setCitizenCompletable(citizenCompletable);
+        task.setTitle(safe(title)); task.setGuidance(guidance); task.setCitizenCompletable(citizenCompletable);
         task.setEvidenceReferences(evidence); if (status == PreparationTaskStatus.COMPLETE) task.setCompletedAt(clock.instant());
         return task;
     }
