@@ -68,10 +68,11 @@ public class ApplicationPreparationService {
                                   CitizenProfileService profiles,
                                   SchemeRepository schemes,
                                   PolicyVersionRepository policies,
-                                  EligibilityEvaluator eligibility,
-                                  Clock clock) {
+                                  EligibilityEvaluator eligibility, PolicyEvaluationEngine policyEngine,
+                                  CitizenProfilePolicyFactResolver factResolver, Clock clock) {
         this.sessions = sessions; this.tasks = tasks; this.history = history; this.currentUsers = currentUsers;
-        this.profiles = profiles; this.schemes = schemes; this.policies = policies; this.eligibility = eligibility; this.clock = clock;
+        this.profiles = profiles; this.schemes = schemes; this.policies = policies; this.eligibility = eligibility;
+        this.policyEngine = policyEngine; this.factResolver = factResolver; this.clock = clock;
     }
 
     @Transactional
