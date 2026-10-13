@@ -73,7 +73,9 @@ public class PolicyInvestigationReviewService {
     @Transactional
     public PolicyVersion forward(UUID runId, LocalDate effectiveFrom, User administrator) {
         authorize(administrator);
-        PolicyAgentRun run = runs.lockDetailedById(runId)
+        runs.lockById(runId)
+                .orElseThrow(() -> new PolicyInvestigationException("The investigation does not exist."));
+        PolicyAgentRun run = runs.findForReviewById(runId)
                 .orElseThrow(() -> new PolicyInvestigationException("The investigation does not exist."));
         if (run.getReviewStatus() != AgentReviewStatus.APPROVED) {
             throw new PolicyInvestigationConflictException("Only an administrator-approved investigation can create a policy draft.");
@@ -89,7 +91,9 @@ public class PolicyInvestigationReviewService {
     }
 
     private PolicyAgentRun lockCompleted(UUID id) {
-        PolicyAgentRun run = runs.lockDetailedById(id)
+        runs.lockById(id)
+                .orElseThrow(() -> new PolicyInvestigationException("The investigation does not exist."));
+        PolicyAgentRun run = runs.findForReviewById(id)
                 .orElseThrow(() -> new PolicyInvestigationException("The investigation does not exist."));
         if (run.getStatus() != AgentRunStatus.COMPLETED) {
             throw new PolicyInvestigationException("Only a completed investigation can be reviewed.");
