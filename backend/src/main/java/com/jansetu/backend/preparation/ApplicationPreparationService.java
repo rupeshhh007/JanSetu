@@ -291,6 +291,13 @@ public class ApplicationPreparationService {
         return List.of();
     }
 
+    /** A catalogue link is not proof that a particular document is mandatory. */
+    private List<PreparationEvidenceReference> documentEvidence(ApplicationPreparationSession session) {
+        String officialUrl = session.getScheme().getOfficialUrl();
+        return officialUrl == null || officialUrl.isBlank() ? List.of() : List.of(
+                new PreparationEvidenceReference(null, session.getScheme().getSourceName(), officialUrl, null, null));
+    }
+
     private PreparationEvidenceReference evidence(PolicySourceReference source) {
         return new PreparationEvidenceReference(source.snapshotId(), source.sourceTitle(), source.sourceUrl(),
                 source.contentHash(), source.excerpt());
