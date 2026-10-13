@@ -326,6 +326,31 @@ class ApplicationPreparationIntegrationTest {
                 .andExpect(jsonPath("$.history.length()").value(4));
     }
 
+    @Test
+    void staleDocumentIdStillResolvesAfterRequirementsRefresh() throws Exception {
+        JsonNode started = start(citizen);
+        UUID id = UUID.fromString(started.get("id").asText());
+        String originalId = findTask(started, "DOCUMENT").get("id").asText();
+        scheme.setRequiredDocuments(List.of("Income certificate", "Residence certificate"));
+        schemes.saveAndFlush(scheme);
+
+        String updated = mockMvc.perform(patch("/api/v1/preparations/{id}/tasks/{taskId}", id, originalId)
+                        .with(user(citizen)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"complete\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PREPARING"))
+                .andExpect(jsonPath("$.tasks[?(@.type == 'DOCUMENT')]", org.hamcrest.Matchers.hasSize(2)))
+                .andReturn().getResponse().getContentAsString();
+        boolean retainedOriginalId = false;
+        for (JsonNode task : json.readTree(updated).get("tasks")) {
+            if ("Income certificate".equals(task.get("title").asText())) {
+                retainedOriginalId = originalId.equals(task.get("id").asText());
+                assertEquals("COMPLETE", task.get("status").asText());
+            }
+        }
+        org.junit.jupiter.api.Assertions.assertTrue(retainedOriginalId, "Stable document keys must keep task UUIDs");
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
