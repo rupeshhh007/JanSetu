@@ -244,6 +244,34 @@ class AgentInvestigationControllerIntegrationTest {
         assertEquals(PolicyVersionStatus.PUBLISHED, policyVersions.findBySchemeIdOrderByVersionNumberDesc(scheme.getId()).get(1).getStatus());
     }
 
+    @Test
+    void cannotForwardRuleToAnotherSchemeWhenCandidateWasReboundAfterApproval() throws Exception {
+        String startBody = json.writeValueAsString(new StartPolicyInvestigationRequest(candidate.getId(), scheme.getId()));
+        String start = mockMvc.perform(post(base()).with(user(admin))
+                        .header("Idempotency-Key", "stale-candidate-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON).content(startBody))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        UUID runId = UUID.fromString(json.readTree(start).get("id").asText());
+        String approval = """
+                {"decision":"APPROVE","reason":"Candidate association may change later."}
+                """;
+        mockMvc.perform(post(base() + "/{runId}/review", runId).with(user(admin))
+                        .contentType(MediaType.APPLICATION_JSON).content(approval))
+                .andExpect(status().isOk());
+
+        Scheme another = scheme();
+        candidate.setAffectedScheme(another);
+        candidate.setStatus(SourceChangeCandidateStatus.APPLICABLE);
+        candidates.saveAndFlush(candidate);
+        long versionCount = policyVersions.count();
+        mockMvc.perform(post(base() + "/{runId}/policy-draft", runId).with(user(admin))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"effectiveFrom\":\"2027-01-01\"}"))
+                .andExpect(status().isConflict());
+        assertEquals(versionCount, policyVersions.count());
+        assertEquals(0, audit.findByEntityTypeAndEntityIdOrderByRecordedAtDesc("POLICY_AGENT_RUN", runId)
+                .stream().filter(record -> record.getAction() == AdminAuditAction.AGENT_INVESTIGATION_FORWARDED).count());
+    }
+
     private String base() { return "/api/v1/admin/ai-investigations"; }
 
     private User account(Role role) {
