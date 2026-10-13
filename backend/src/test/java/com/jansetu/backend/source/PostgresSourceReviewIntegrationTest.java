@@ -2,6 +2,10 @@ package com.jansetu.backend.source;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jansetu.backend.audit.AdminAuditRecordRepository;
+import com.jansetu.backend.agent.domain.AgentRunStatus;
+import com.jansetu.backend.agent.persistence.PolicyAgentExecutionEventRepository;
+import com.jansetu.backend.agent.persistence.PolicyAgentRunRepository;
+import com.jansetu.backend.agent.service.AgentExecutionService;
 import com.jansetu.backend.auth.entity.Role;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.auth.repository.UserRepository;
@@ -74,6 +78,9 @@ class PostgresSourceReviewIntegrationTest {
     @Autowired UserRepository users;
     @Autowired AdminAuditRecordRepository audit;
     @Autowired PolicyVersionRepository policyVersions;
+    @Autowired AgentExecutionService agentExecutions;
+    @Autowired PolicyAgentRunRepository agentRuns;
+    @Autowired PolicyAgentExecutionEventRepository agentEvents;
     @Autowired PlatformTransactionManager transactions;
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
@@ -82,7 +89,7 @@ class PostgresSourceReviewIntegrationTest {
 
     @Test
     void appliesAllMigrationsAndPersistsDetectedReviewWithoutPublishingPolicy() {
-        assertEquals("10", flyway.info().current().getVersion().getVersion());
+        assertEquals("11", flyway.info().current().getVersion().getVersion());
         assertEquals(3, indexCount("source_change_candidates", "idx_source_change_candidates_%"));
         assertEquals(2, indexCount("administrative_audit_records", "idx_administrative_audit_records_%"));
         assertEquals(1, indexCount("citizen_policy_notifications", "idx_citizen_policy_notifications_%"));
@@ -90,6 +97,10 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals(7, foreignKeyCount("source_change_candidates"));
         assertEquals(3, foreignKeyCount("citizen_policy_notifications"));
         assertEquals("character varying", columnType("citizen_policy_notifications", "current_result"));
+        assertEquals(2, indexCount("policy_agent_runs", "idx_policy_agent_runs_%"));
+        assertEquals(1, indexCount("policy_agent_execution_events", "idx_policy_agent_events_%"));
+        assertEquals(3, foreignKeyCount("policy_agent_runs"));
+        assertEquals("jsonb", columnType("policy_agent_runs", "result"));
 
         Fixture fixture = fixture();
         long policyCount = policyVersions.count();
@@ -107,6 +118,27 @@ class PostgresSourceReviewIntegrationTest {
         assertThrows(RuntimeException.class, () -> transaction.executeWithoutResult(ignored ->
                 jdbc.update("delete from administrative_audit_records where entity_id = ?", fixture.candidateId())));
         assertEquals(1, auditFor(fixture.candidateId()));
+    }
+
+    @Test
+    void agentRunAndAppendOnlyToolTimelinePersistOnPostgres() {
+        Fixture fixture = fixture();
+        var run = agentExecutions.start(fixture.candidateId(), fixture.schemeId(),
+                "postgres-agent-" + UUID.randomUUID(), fixture.admin());
+
+        assertEquals(AgentRunStatus.COMPLETED, run.getStatus());
+        assertEquals(10, run.getToolCallCount());
+        assertEquals(12, agentEvents.countByRunId(run.getId()));
+        assertEquals(1, agentRuns.count());
+        assertEquals(0, policyVersions.count(), "an investigation must not create or publish a policy");
+
+        UUID eventId = agentEvents.findByRunIdOrderBySequenceNumber(run.getId()).getFirst().getId();
+        TransactionTemplate transaction = new TransactionTemplate(transactions);
+        assertThrows(RuntimeException.class, () -> transaction.executeWithoutResult(ignored ->
+                jdbc.update("update policy_agent_execution_events set outcome = 'ERROR' where id = ?", eventId)));
+        assertThrows(RuntimeException.class, () -> transaction.executeWithoutResult(ignored ->
+                jdbc.update("delete from policy_agent_execution_events where id = ?", eventId)));
+        assertEquals(12, agentEvents.countByRunId(run.getId()));
     }
 
     @Test

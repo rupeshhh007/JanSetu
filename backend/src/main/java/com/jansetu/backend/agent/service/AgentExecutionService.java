@@ -140,7 +140,8 @@ public class AgentExecutionService {
     @Transactional(readOnly = true)
     public PolicyAgentRun get(UUID runId, User actor) {
         authorize(actor);
-        return runs.findById(runId).orElseThrow(() -> new PolicyInvestigationException("The investigation does not exist."));
+        return runs.findDetailedById(runId)
+                .orElseThrow(() -> new PolicyInvestigationException("The investigation does not exist."));
     }
 
     @Transactional(readOnly = true)
