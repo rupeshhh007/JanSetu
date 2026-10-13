@@ -19,10 +19,16 @@ public interface PolicyAgentRunRepository extends JpaRepository<PolicyAgentRun, 
     @Query("select run from PolicyAgentRun run where run.id = :id")
     Optional<PolicyAgentRun> findDetailedById(@Param("id") UUID id);
 
+    // Acquire the row lock in a single-table query. Fetch-joining several associations
+    // forces Hibernate follow-on locking on PostgreSQL, allowing a stale version race.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select run from PolicyAgentRun run where run.id = :id")
+    Optional<PolicyAgentRun> lockById(@Param("id") UUID id);
+
+    // Fetch associations only after the row-level lock has been acquired.
     @EntityGraph(attributePaths = {"sourceCandidate", "sourceCandidate.previousSnapshot", "sourceCandidate.newSnapshot", "scheme", "startedBy", "reviewedBy"})
     @Query("select run from PolicyAgentRun run where run.id = :id")
-    Optional<PolicyAgentRun> lockDetailedById(@Param("id") UUID id);
+    Optional<PolicyAgentRun> findForReviewById(@Param("id") UUID id);
 
     @EntityGraph(attributePaths = {"sourceCandidate", "scheme", "startedBy"})
     List<PolicyAgentRun> findAllByOrderByCreatedAtDesc();
