@@ -28,7 +28,7 @@ public class PolicyAgentRun {
     private Scheme scheme;
     @ManyToOne(fetch = FetchType.LAZY, optional = false) @JoinColumn(name = "started_by_user_id", nullable = false)
     private User startedBy;
-    @Enumerated(EnumType.STRING) @Column(name = "execution_mode", nullable = false, length = 20)
+    @Enumerated(EnumType.STRING) @Column(name = "execution_mode", nullable = false, length = 30)
     private AgentExecutionMode executionMode;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30)
     private AgentRunStatus status;
