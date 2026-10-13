@@ -199,6 +199,18 @@ class ApplicationPreparationIntegrationTest {
                 .andExpect(jsonPath("$.progressPercent", org.hamcrest.Matchers.lessThan(100)));
     }
 
+    @Test
+    void unspecifiedDocumentRequirementsMustStayUnknown() throws Exception {
+        scheme.setRequiredDocuments(List.of());
+        schemes.saveAndFlush(scheme);
+        start(citizen);
+        mockMvc.perform(get("/api/v1/preparations").with(user(citizen)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].status").value("PREPARING"))
+                .andExpect(jsonPath("$[0].tasks[?(@.type == 'UNKNOWN_REQUIREMENT')].status")
+                        .value(org.hamcrest.Matchers.contains("UNKNOWN")));
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
