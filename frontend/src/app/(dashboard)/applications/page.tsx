@@ -76,7 +76,7 @@ export default function ApplicationsPage() {
             Try again
           </button>
         </div>
-      ) : !query.data?.length && !preparations.data?.length ? (
+      ) : query.isSuccess && preparations.isSuccess && !query.data?.length && !preparations.data?.length ? (
         <div className="paper-card px-6 py-16 text-center">
           <ClipboardList
             size={34}
