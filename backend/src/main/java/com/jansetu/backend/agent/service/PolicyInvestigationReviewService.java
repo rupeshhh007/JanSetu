@@ -84,6 +84,11 @@ public class PolicyInvestigationReviewService {
         if (run.getReviewStatus() != AgentReviewStatus.APPROVED) {
             throw new PolicyInvestigationConflictException("Only an administrator-approved investigation can create a policy draft.");
         }
+        if (run.getSourceCandidate().getAffectedScheme() == null
+                || !run.getSourceCandidate().getAffectedScheme().getId().equals(run.getScheme().getId())) {
+            throw new PolicyInvestigationConflictException(
+                    "The reviewed evidence is not accepted for this investigation's scheme.");
+        }
         PolicyInvestigationResult result = requireResult(run);
         PolicyVersion draft = drafts.createDraft(run.getSourceCandidate().getId(), effectiveFrom,
                 result.proposedPolicyRule(), administrator);
