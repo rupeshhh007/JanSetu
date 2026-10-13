@@ -31,5 +31,5 @@ public interface PolicyAgentRunRepository extends JpaRepository<PolicyAgentRun, 
     Optional<PolicyAgentRun> findForReviewById(@Param("id") UUID id);
 
     @EntityGraph(attributePaths = {"sourceCandidate", "scheme", "startedBy"})
-    List<PolicyAgentRun> findAllByOrderByCreatedAtDesc();
+    List<PolicyAgentRun> findTop50ByOrderByCreatedAtDesc();
 }
