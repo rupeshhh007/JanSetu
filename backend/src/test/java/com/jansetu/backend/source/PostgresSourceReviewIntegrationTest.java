@@ -94,7 +94,7 @@ class PostgresSourceReviewIntegrationTest {
 
     @Test
     void appliesAllMigrationsAndPersistsDetectedReviewWithoutPublishingPolicy() {
-        assertEquals("13", flyway.info().current().getVersion().getVersion());
+        assertEquals("14", flyway.info().current().getVersion().getVersion());
         assertEquals(3, indexCount("source_change_candidates", "idx_source_change_candidates_%"));
         assertEquals(2, indexCount("administrative_audit_records", "idx_administrative_audit_records_%"));
         assertEquals(1, indexCount("citizen_policy_notifications", "idx_citizen_policy_notifications_%"));
@@ -108,6 +108,7 @@ class PostgresSourceReviewIntegrationTest {
         assertEquals("jsonb", columnType("policy_agent_runs", "result"));
         assertEquals("integer", columnType("policy_agent_runs", "estimated_tokens_used"));
         assertEquals("character varying", columnType("policy_agent_runs", "review_status"));
+        assertEquals(30, columnLength("policy_agent_runs", "execution_mode"));
 
         Fixture fixture = fixture();
         long policyCount = policyVersions.count();
@@ -312,6 +313,13 @@ class PostgresSourceReviewIntegrationTest {
         return jdbc.queryForObject(
                 "select data_type from information_schema.columns where table_name = ? and column_name = ?",
                 String.class, table, column);
+    }
+
+    private int columnLength(String table, String column) {
+        Integer length = jdbc.queryForObject(
+                "select character_maximum_length from information_schema.columns where table_name = ? and column_name = ?",
+                Integer.class, table, column);
+        return length == null ? 0 : length;
     }
 
     private int foreignKeyCount(String table) {
