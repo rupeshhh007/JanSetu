@@ -99,7 +99,8 @@ public class PolicyInvestigationAgent {
 
     public PolicyInvestigationResult buildProposal(UUID runId, UUID candidateId, UUID schemeId,
                                                    Map<AgentToolName, AgentToolObservation> observations,
-                                                   List<PolicyValidationIssue> validationIssues) {
+                                                   List<PolicyValidationIssue> validationIssues,
+                                                   AgentExecutionMode executionMode) {
         JsonNode candidate = required(observations, AgentToolName.GET_SOURCE_CHANGE_CANDIDATE);
         JsonNode previous = required(observations, AgentToolName.GET_PREVIOUS_SOURCE_SNAPSHOT);
         JsonNode current = required(observations, AgentToolName.GET_CURRENT_POLICY_VERSION);
@@ -131,7 +132,7 @@ public class PolicyInvestigationAgent {
                 validationIssues,
                 true,
                 "Administrator must inspect the cited evidence, edit the typed draft if needed, and use the existing review workflow.",
-                true
+                executionMode == AgentExecutionMode.DETERMINISTIC_FIXTURE
         );
     }
 
