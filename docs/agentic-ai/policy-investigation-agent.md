@@ -4,7 +4,7 @@
 
 JanSetu records immutable official-source snapshots and detects meaningful text changes. A change candidate still needs a structured investigation before an administrator can decide whether to prepare a policy draft. The policy investigation agent gathers the bounded domain context, compares evidence, prepares a typed proposal, validates it, and preserves a reviewable execution timeline.
 
-This workflow benefits from an agent because the required evidence can vary and a configured model can select the next eligible tool. Deterministic policy validation, authorization, persistence, and publication remain normal application code. The default offline mode uses a deterministic planner so tests and demonstrations do not require a model API. Optional `LIVE_MODEL` mode uses Spring AI structured output to choose among tools currently permitted by the same state machine.
+This workflow benefits from an agent because the required evidence can vary and a configured model can select the next eligible tool. **Current scope:** the optional live model chooses the order of already-allowed tools; it does not yet extract new numeric thresholds or synthesize a changed policy AST. The proposed rule is a copy of the current typed policy and must be edited and verified by an administrator. Offline runs are synthetic fixtures, not AI-authored policy recommendations. Deterministic policy validation, authorization, persistence, and publication remain normal application code. The default offline mode uses a deterministic planner so tests and demonstrations do not require a model API. Optional `LIVE_MODEL` mode uses Spring AI structured output to choose among tools currently permitted by the same state machine.
 
 ## Execution loop
 
