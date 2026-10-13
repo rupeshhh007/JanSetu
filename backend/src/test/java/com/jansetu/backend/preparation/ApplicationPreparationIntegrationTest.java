@@ -351,6 +351,29 @@ class ApplicationPreparationIntegrationTest {
         org.junit.jupiter.api.Assertions.assertTrue(retainedOriginalId, "Stable document keys must keep task UUIDs");
     }
 
+    @Test
+    void incompleteJourneyGetsNewActivityTimestampWhenDocumentProgressChanges() throws Exception {
+        scheme.setRequiredDocuments(List.of("Income certificate", "Residence certificate"));
+        schemes.saveAndFlush(scheme);
+        JsonNode original = start(citizen);
+        UUID id = UUID.fromString(original.get("id").asText());
+        String documentId = findTask(original, "DOCUMENT").get("id").asText();
+        ApplicationPreparationSession session = sessions.findById(id).orElseThrow();
+        Instant previousActivity = Instant.now().minusSeconds(3600);
+        session.setUpdatedAt(previousActivity);
+        sessions.saveAndFlush(session);
+
+        String response = mockMvc.perform(patch("/api/v1/preparations/{id}/tasks/{taskId}", id, documentId)
+                        .with(user(citizen)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"complete\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PREPARING"))
+                .andReturn().getResponse().getContentAsString();
+        Instant changedAt = Instant.parse(json.readTree(response).get("updatedAt").asText());
+        org.junit.jupiter.api.Assertions.assertTrue(changedAt.isAfter(previousActivity),
+                "Task progress must update the parent journey's last-activity timestamp");
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
