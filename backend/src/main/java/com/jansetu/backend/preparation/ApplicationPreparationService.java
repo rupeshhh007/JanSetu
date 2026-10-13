@@ -150,9 +150,11 @@ public class ApplicationPreparationService {
         UUID currentPolicy = current == null ? null : current.getId();
         if (session.getSchemeRevision() == session.getScheme().getVersion()
                 && Objects.equals(storedPolicy, currentPolicy) && !eligibilityTasksChanged(session)) return session;
-        Set<String> completedDocuments = tasks.findBySessionIdOrderByTaskTypeAscTitleAsc(session.getId()).stream()
-                .filter(task -> task.getTaskType() == PreparationTaskType.DOCUMENT && task.getStatus() == PreparationTaskStatus.COMPLETE)
-                .map(ApplicationPreparationTask::getTaskKey).collect(java.util.stream.Collectors.toSet());
+        Map<String, Instant> completedDocuments = tasks.findBySessionIdOrderByTaskTypeAscTitleAsc(session.getId()).stream()
+                .filter(task -> task.getTaskType() == PreparationTaskType.DOCUMENT
+                        && task.getStatus() == PreparationTaskStatus.COMPLETE && task.getCompletedAt() != null)
+                .collect(java.util.stream.Collectors.toMap(ApplicationPreparationTask::getTaskKey,
+                        ApplicationPreparationTask::getCompletedAt, (first, second) -> first));
         session.setSchemeRevision(session.getScheme().getVersion()); session.setPolicyVersion(current);
         rebuildTasks(session, session.getProfile(), actor, completedDocuments, true);
         return session;
