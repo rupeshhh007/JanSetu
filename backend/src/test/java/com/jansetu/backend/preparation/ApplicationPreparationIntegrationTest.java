@@ -221,6 +221,29 @@ class ApplicationPreparationIntegrationTest {
                         .value(org.hamcrest.Matchers.contains("UNKNOWN")));
     }
 
+    @Test
+    void preparationUsesPublishedPolicyInsteadOfOutdatedLegacyCatalogueCriteria() throws Exception {
+        PolicyVersion current = new PolicyVersion();
+        current.setScheme(scheme);
+        current.setVersionNumber(1);
+        current.setStatus(PolicyVersionStatus.PUBLISHED);
+        current.setEffectiveFrom(LocalDate.now().minusDays(1));
+        current.setRecordedAt(Instant.now());
+        current.setPublishedAt(Instant.now());
+        current.setPolicyRule(new BooleanMatchRule("student-status", "Student status", FactKey.IS_STUDENT, false));
+        current.setSourceReferences(List.of());
+        policyVersions.saveAndFlush(current);
+
+        JsonNode started = start(citizen);
+        assertEquals("PREPARING", started.get("status").asText());
+        org.junit.jupiter.api.Assertions.assertEquals(current.getId().toString(),
+                started.get("policyVersionId").asText());
+        mockMvc.perform(get("/api/v1/preparations/{id}", started.get("id").asText()).with(user(citizen)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tasks[?(@.title == 'Published policy eligibility')].status")
+                        .value(org.hamcrest.Matchers.contains("INCOMPLETE")));
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
