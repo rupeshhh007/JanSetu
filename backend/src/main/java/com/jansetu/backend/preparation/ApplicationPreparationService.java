@@ -191,7 +191,7 @@ public class ApplicationPreparationService {
                     completedDocuments.contains(key) ? PreparationTaskStatus.COMPLETE : PreparationTaskStatus.INCOMPLETE,
                     document, "Have this document ready for the official portal. Do not upload it to JanSetu.", true, documentEvidence(session)));
         }
-        if (session.getScheme().getRequiredDocuments().isEmpty()) {
+        if (session.getScheme().getRequiredDocuments().stream().noneMatch(document -> document != null && !document.isBlank())) {
             generated.add(task(session, key(PreparationTaskType.UNKNOWN_REQUIREMENT, "documents"), PreparationTaskType.UNKNOWN_REQUIREMENT,
                     PreparationTaskStatus.UNKNOWN, "Confirm document requirements on the official portal",
                     "JanSetu has no verified document list for this scheme.", false, documentEvidence(session)));
