@@ -149,7 +149,7 @@ public class AgentExecutionService {
     @Transactional(readOnly = true)
     public List<PolicyAgentRun> history(User actor) {
         authorize(actor);
-        return runs.findAllByOrderByCreatedAtDesc();
+        return runs.findTop50ByOrderByCreatedAtDesc();
     }
 
     @Transactional(readOnly = true)
