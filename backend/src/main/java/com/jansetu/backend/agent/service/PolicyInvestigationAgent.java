@@ -79,6 +79,11 @@ public class PolicyInvestigationAgent {
         return new AgentPlanDecision(decision.tool(), true, estimatedTokens);
     }
 
+    /** Query the terminal state without a model call or consuming any remaining budget. */
+    public boolean hasRemainingTools(Map<AgentToolName, AgentToolObservation> observations) {
+        return !eligibleTools(observations).isEmpty();
+    }
+
     private List<AgentToolName> eligibleTools(Map<AgentToolName, AgentToolObservation> observations) {
         List<AgentToolName> reads = PLAN.subList(0, 7).stream()
                 .filter(tool -> !observations.containsKey(tool)).toList();
