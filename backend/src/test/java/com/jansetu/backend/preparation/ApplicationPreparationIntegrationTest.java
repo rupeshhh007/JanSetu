@@ -299,6 +299,15 @@ class ApplicationPreparationIntegrationTest {
                         .value(org.hamcrest.Matchers.contains("INCOMPLETE")));
     }
 
+    @Test
+    void listedJourneysArePrivateToTheAuthenticatedCitizen() throws Exception {
+        start(citizen);
+        mockMvc.perform(get("/api/v1/preparations").with(user(otherCitizen)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/v1/preparations").with(user(citizen)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
