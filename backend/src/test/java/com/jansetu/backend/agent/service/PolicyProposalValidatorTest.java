@@ -60,6 +60,14 @@ class PolicyProposalValidatorTest {
                 .stream().anyMatch(issue -> issue.code().equals("EVIDENCE_TITLE_MISMATCH")));
     }
 
+    @Test
+    void refusesUnboundedCitationCount() {
+        List<EvidenceCitation> eleven = java.util.stream.IntStream.range(0, 11)
+                .mapToObj(index -> validCitation()).toList();
+        assertTrue(validator.validate(proposal(eleven), candidateId, schemeId, Set.of(snapshotId))
+                .stream().anyMatch(issue -> issue.code().equals("TOO_MANY_CITATIONS")));
+    }
+
     private PolicyInvestigationResult proposal(List<EvidenceCitation> citations) {
         return new PolicyInvestigationResult(UUID.randomUUID(), AgentRunStatus.COMPLETED, candidateId, schemeId,
                 List.of(snapshotId), null, "Synthetic policy proposal",
