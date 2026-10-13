@@ -71,7 +71,7 @@ public class ApplicationPreparationService {
         // Serialize starts even when the session does not exist yet.
         entityManager.lock(identity.profile(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         var existing = sessions.findByProfileIdAndSchemeId(identity.profile().getId(), schemeId);
-        if (existing.isPresent()) return response(refreshIfNeeded(existing.get(), identity.user()));
+        if (existing.isPresent()) return response(refreshIfNeeded(owned(existing.get().getId(), identity.profile()), identity.user()));
         Scheme scheme = schemes.findById(schemeId).filter(value -> value.getStatus() == SchemeStatus.PUBLISHED)
                 .orElseThrow(() -> new SchemeNotFoundException("Published scheme not found"));
         ApplicationPreparationSession session = new ApplicationPreparationSession();
