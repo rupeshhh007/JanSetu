@@ -61,7 +61,9 @@ public class AgentExecutionService {
         this.store = store;
         this.clock = clock;
         this.maxToolCalls = Math.max(1, Math.min(maxToolCalls, 20));
-        this.maxDuration = maxDuration;
+        this.maxDuration = maxDuration.isNegative() || maxDuration.isZero()
+                ? Duration.ofSeconds(1) : maxDuration.compareTo(Duration.ofMinutes(5)) > 0
+                ? Duration.ofMinutes(5) : maxDuration;
         this.maxModelCalls = Math.max(0, Math.min(maxModelCalls, 20));
         this.maxEstimatedTokens = Math.max(0, Math.min(maxEstimatedTokens, 50_000));
     }
