@@ -264,6 +264,28 @@ class ApplicationPreparationIntegrationTest {
                 .andExpect(jsonPath("$.tasks[?(@.type == 'DOCUMENT')]", org.hamcrest.Matchers.hasSize(1)));
     }
 
+    @Test
+    void catalogueRefreshPreservesDocumentCompletionInstant() throws Exception {
+        JsonNode started = start(citizen);
+        UUID id = UUID.fromString(started.get("id").asText());
+        String taskId = findTask(started, "DOCUMENT").get("id").asText();
+        String result = mockMvc.perform(patch("/api/v1/preparations/{id}/tasks/{taskId}", id, taskId)
+                        .with(user(citizen)).contentType(MediaType.APPLICATION_JSON).content("{\"complete\":true}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String completedAt = findTask(json.readTree(result), "DOCUMENT").get("completedAt").asText();
+        scheme.setRequiredDocuments(List.of("Income certificate", "Residence certificate"));
+        schemes.saveAndFlush(scheme);
+        String updated = mockMvc.perform(get("/api/v1/preparations/{id}", id).with(user(citizen)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        for (JsonNode task : json.readTree(updated).get("tasks")) {
+            if ("Income certificate".equals(task.get("title").asText())) {
+                assertEquals(completedAt, task.get("completedAt").asText());
+                return;
+            }
+        }
+        throw new AssertionError("Previously completed document is missing after refresh");
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
