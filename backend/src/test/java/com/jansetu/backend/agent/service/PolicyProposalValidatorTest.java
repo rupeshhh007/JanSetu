@@ -52,6 +52,14 @@ class PolicyProposalValidatorTest {
                 .stream().anyMatch(issue -> issue.code().equals("EVIDENCE_URL_MISMATCH")));
     }
 
+    @Test
+    void refusesForgedSourceTitle() {
+        EvidenceCitation spoof = new EvidenceCitation(snapshotId, "Different government agency",
+                "https://india.gov.in/fixture", "sha256:known", "Income requirement is 300000.");
+        assertTrue(validator.validate(proposal(List.of(spoof)), candidateId, schemeId, Set.of(snapshotId))
+                .stream().anyMatch(issue -> issue.code().equals("EVIDENCE_TITLE_MISMATCH")));
+    }
+
     private PolicyInvestigationResult proposal(List<EvidenceCitation> citations) {
         return new PolicyInvestigationResult(UUID.randomUUID(), AgentRunStatus.COMPLETED, candidateId, schemeId,
                 List.of(snapshotId), null, "Synthetic policy proposal",
