@@ -50,7 +50,7 @@ export function PreparationWorkspace({ preparation, compact = false }: { prepara
       <div className="flex items-start gap-3 text-xs leading-5 text-muted-foreground"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" /><p>JanSetu records preparation only. No documents are uploaded, and official application status remains unknown without an authorized government integration.</p></div>
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         {compact && <Link href={`/schemes/${preparation.schemeId}`} className="min-h-11 flex-1 rounded-lg border bg-white px-4 py-3 text-center text-sm font-semibold">Continue preparation</Link>}
-        {preparation.officialUrl && <a href={preparation.officialUrl} target="_blank" rel="noreferrer" className="action-link flex-1 justify-center">Open official portal <ExternalLink size={14} /></a>}
+        {preparation.officialUrl && <a href={preparation.officialUrl} target="_blank" rel="noopener noreferrer" className="action-link flex-1 justify-center">Open official portal <ExternalLink size={14} /></a>}
         {ready && <button type="button" disabled={report.isPending} onClick={() => window.confirm("Confirm that you applied on the official portal? JanSetu cannot verify submission or approval.") && report.mutate(preparation.id)} className="min-h-11 flex-1 rounded-lg border bg-white px-4 text-sm font-semibold disabled:opacity-50">I applied on the official portal</button>}
       </div>
       {reported && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-primary"><FileCheck2 size={15} />Citizen-reported application recorded {preparation.citizenReportedAppliedAt ? new Date(preparation.citizenReportedAppliedAt).toLocaleDateString("en-IN") : ""}</p>}
