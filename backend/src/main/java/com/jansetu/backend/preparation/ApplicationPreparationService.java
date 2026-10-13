@@ -37,6 +37,8 @@ public class ApplicationPreparationService {
     private final PolicyVersionRepository policies;
     private final EligibilityEvaluator eligibility;
     private final Clock clock;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 
     @org.springframework.beans.factory.annotation.Autowired
     public ApplicationPreparationService(ApplicationPreparationSessionRepository sessions,
