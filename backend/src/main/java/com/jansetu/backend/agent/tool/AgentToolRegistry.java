@@ -73,7 +73,7 @@ public class AgentToolRegistry {
     }
 
     private void authorize(User actor, AgentToolName tool) {
-        if (actor == null || actor.getRole() != Role.ADMIN || !actor.isEnabled()) {
+        if (actor == null || actor.getId() == null || actor.getRole() != Role.ADMIN || !actor.isEnabled()) {
             throw new PolicyInvestigationException("Administrator authorization is required for agent tool " + tool + ".");
         }
     }
