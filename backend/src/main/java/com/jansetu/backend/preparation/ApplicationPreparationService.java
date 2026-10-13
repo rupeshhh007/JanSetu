@@ -193,7 +193,7 @@ public class ApplicationPreparationService {
         if (session.getScheme().getRequiredDocuments().isEmpty()) {
             generated.add(task(session, key(PreparationTaskType.UNKNOWN_REQUIREMENT, "documents"), PreparationTaskType.UNKNOWN_REQUIREMENT,
                     PreparationTaskStatus.UNKNOWN, "Confirm document requirements on the official portal",
-                    "JanSetu has no verified document list for this scheme.", false, evidence));
+                    "JanSetu has no verified document list for this scheme.", false, documentEvidence(session)));
         }
         if (session.getScheme().getOfficialUrl() == null || session.getScheme().getOfficialUrl().isBlank()) {
             generated.add(task(session, key(PreparationTaskType.UNKNOWN_REQUIREMENT, "official-portal"),
