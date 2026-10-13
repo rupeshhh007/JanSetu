@@ -35,7 +35,7 @@ export function PreparationWorkspace({ preparation, compact = false }: { prepara
           <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">{task.title}</strong><TaskBadge status={task.status} /></div>
             {task.guidance && <p className="mt-1 text-xs leading-5 text-muted-foreground">{task.guidance}</p>}
             {task.citizenCompletable && <p className="mt-1 text-[11px] text-muted-foreground">Self-reported readiness only; JanSetu does not verify possession of this document.</p>}
-            {task.type === "PROFILE_FACT" && <Link href="/profile" className="text-link mt-2 text-xs">Correct profile information</Link>}
+            {(task.type === "PROFILE_FACT" || (task.type === "ELIGIBILITY" && task.status !== "COMPLETE")) && <Link href="/profile" className="text-link mt-2 text-xs">Review profile information</Link>}
             {!!task.evidenceReferences.length && <details className="mt-2"><summary className="cursor-pointer text-xs text-primary">Evidence & source</summary>
               <ul className="mt-2 space-y-2">{task.evidenceReferences.map((evidence, index) => <li key={`${evidence.snapshotId}-${index}`} className="rounded-lg bg-muted/60 p-3 text-xs leading-5">
                 <span>{evidence.sourceTitle || "Official source"}</span>{evidence.excerpt && <blockquote className="mt-1 border-l-2 border-primary pl-2">{evidence.excerpt}</blockquote>}
