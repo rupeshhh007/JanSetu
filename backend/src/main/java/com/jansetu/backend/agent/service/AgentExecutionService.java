@@ -107,7 +107,7 @@ public class AgentExecutionService {
                 }
                 if (tool == AgentToolName.VALIDATE_POLICY_PROPOSAL && proposal == null) {
                     proposal = agent.buildProposal(run.getId(), run.getSourceCandidate().getId(), run.getScheme().getId(),
-                            observations, List.of());
+                            observations, List.of(), run.getExecutionMode());
                 }
                 long started = System.nanoTime();
                 AgentToolObservation observation = tools.execute(tool, run.getSourceCandidate().getId(),
@@ -118,7 +118,7 @@ public class AgentExecutionService {
                 if (tool == AgentToolName.VALIDATE_POLICY_PROPOSAL) {
                     validationIssues = readValidationIssues(observation.value());
                     proposal = agent.buildProposal(run.getId(), run.getSourceCandidate().getId(), run.getScheme().getId(),
-                            observations, validationIssues);
+                            observations, validationIssues, run.getExecutionMode());
                 }
                 store.recordTool(run.getId(), run.getToolCallCount(), run.getModelCallCount(),
                         run.getEstimatedTokensUsed(), tool == AgentToolName.VALIDATE_POLICY_PROPOSAL
@@ -127,7 +127,7 @@ public class AgentExecutionService {
                         Map.of("observationType", observation.value().getNodeType().name()));
             }
             proposal = agent.buildProposal(run.getId(), run.getSourceCandidate().getId(), run.getScheme().getId(),
-                    observations, validationIssues);
+                    observations, validationIssues, run.getExecutionMode());
             PolicyInvestigationResult completed = new PolicyInvestigationResult(
                     proposal.investigationId(), AgentRunStatus.COMPLETED, proposal.sourceCandidateId(), proposal.schemeId(),
                     proposal.snapshotIds(), proposal.previousPolicyVersionId(), proposal.proposedChangeSummary(),
