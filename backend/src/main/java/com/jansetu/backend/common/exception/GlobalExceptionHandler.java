@@ -14,6 +14,8 @@ import com.jansetu.backend.source.OfficialSourceNotFoundException;
 import com.jansetu.backend.source.SourceIntakeException;
 import com.jansetu.backend.profile.fact.InvalidProfileFactException;
 import com.jansetu.backend.source.change.SourceChangeReviewException;
+import com.jansetu.backend.agent.service.PolicyInvestigationException;
+import com.jansetu.backend.agent.service.PolicyInvestigationConflictException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -79,6 +81,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SourceIntakeException.class)
     public ResponseEntity<ErrorResponse> handleSourceIntake(SourceIntakeException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Source Intake Rejected", ex.getMessage());
+    }
+
+    @ExceptionHandler(PolicyInvestigationException.class)
+    public ResponseEntity<ErrorResponse> handlePolicyInvestigation(PolicyInvestigationException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Policy Investigation Rejected", ex.getMessage());
+    }
+
+    @ExceptionHandler(PolicyInvestigationConflictException.class)
+    public ResponseEntity<ErrorResponse> handlePolicyInvestigationConflict(PolicyInvestigationConflictException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Policy Investigation Conflict", ex.getMessage());
     }
 
     @ExceptionHandler(SchemePublicationException.class)

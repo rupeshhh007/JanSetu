@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   ADMIN_APPLICATIONS: "/api/v1/admin/applications",
   ADMIN_SOURCE_CHANGES: "/api/v1/admin/source-change-candidates",
   ADMIN_AUDIT: "/api/v1/admin/audit",
+  ADMIN_AI_INVESTIGATIONS: "/api/v1/admin/ai-investigations",
   NOTIFICATIONS: "/api/v1/notifications",
   AI_EXPLAIN: "/api/v1/ai/explain",
   AI_CHAT: "/api/v1/ai/chat",  

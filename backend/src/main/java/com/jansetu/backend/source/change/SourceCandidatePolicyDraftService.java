@@ -51,7 +51,8 @@ public class SourceCandidatePolicyDraftService {
         if (candidate.getProposedPolicyVersion() != null) {
             throw new SourceChangeReviewException("This source-change candidate already has a policy draft.");
         }
-        if (administrator == null || administrator.getId() == null) {
+        if (administrator == null || administrator.getId() == null
+                || administrator.getRole() != com.jansetu.backend.auth.entity.Role.ADMIN || !administrator.isEnabled()) {
             throw new SourceChangeReviewException("An authenticated administrator is required.");
         }
         SourceSnapshot evidence = candidate.getNewSnapshot();
