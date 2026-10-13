@@ -213,6 +213,10 @@ public class AgentExecutionService {
 
     private String safeMessage(RuntimeException failure) {
         String message = failure.getMessage();
-        return message == null || message.isBlank() ? "The investigation failed safely." : message.substring(0, Math.min(1000, message.length()));
+        if (!(failure instanceof PolicyInvestigationException)) {
+            return "The investigation encountered an internal error. Contact an administrator to inspect server logs.";
+        }
+        return message == null || message.isBlank() ? "The investigation failed safely."
+                : message.substring(0, Math.min(1000, message.length()));
     }
 }
