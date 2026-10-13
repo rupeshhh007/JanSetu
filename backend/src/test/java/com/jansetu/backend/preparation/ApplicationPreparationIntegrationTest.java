@@ -45,6 +45,7 @@ class ApplicationPreparationIntegrationTest {
     @Autowired UserRepository users;
     @Autowired CitizenProfileRepository profiles;
     @Autowired SchemeRepository schemes;
+    @Autowired PolicyVersionRepository policyVersions;
     @Autowired ApplicationPreparationSessionRepository sessions;
     @Autowired ApplicationPreparationHistoryRepository history;
 
