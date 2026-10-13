@@ -134,6 +134,7 @@ public class ApplicationPreparationService {
     }
 
     private ApplicationPreparationSession refreshIfNeeded(ApplicationPreparationSession session, User actor) {
+        if (session.getStatus() == PreparationStatus.CITIZEN_REPORTED_APPLICATION) return session;
         PolicyVersion current = currentPolicy(session.getScheme().getId()).orElse(null);
         UUID storedPolicy = session.getPolicyVersion() == null ? null : session.getPolicyVersion().getId();
         UUID currentPolicy = current == null ? null : current.getId();
