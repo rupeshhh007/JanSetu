@@ -15,6 +15,7 @@ import {
 } from "./api";
 import type { SourceChangeCandidate } from "./types";
 import { PolicyPublicationWorkflow } from "./PolicyPublicationWorkflow";
+import { AIInvestigationWorkspace } from "./AIInvestigationWorkspace";
 
 interface Props { schemes: SchemeResponse[] }
 
@@ -99,6 +100,7 @@ export function SourceChangeReviewQueue({ schemes }: Props) {
         <HistoryList title="Append-only audit timeline" icon={<ShieldCheck className="size-4" />} loading={audit.isLoading} error={audit.isError}
           empty="No administrative source-review events have been recorded." items={(audit.data ?? []).filter((item) => item.entityType === "SOURCE_CHANGE_CANDIDATE").map((item) => ({ id: item.id, title: item.action === "SOURCE_CHANGE_ACCEPTED" ? "Evidence accepted" : "Evidence rejected", meta: item.actorEmail, detail: item.decisionReason, date: item.recordedAt }))} />
       </div>
+      <AIInvestigationWorkspace candidates={history.data ?? []} schemes={schemes} />
       <PolicyPublicationWorkflow candidates={reviewed} />
     </section>
   );
