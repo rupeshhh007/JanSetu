@@ -175,7 +175,7 @@ public class ApplicationPreparationService {
     }
 
     private void rebuildTasks(ApplicationPreparationSession session, CitizenProfile profile, User actor,
-                              Set<String> completedDocuments, boolean refreshed) {
+                              Map<String, Instant> completedDocuments, boolean refreshed) {
         tasks.deleteBySessionId(session.getId());
         tasks.flush();
         List<PreparationEvidenceReference> evidence = evidence(session);
