@@ -254,6 +254,16 @@ class ApplicationPreparationIntegrationTest {
                 UUID.fromString(original.get("id").asText())).size());
     }
 
+    @Test
+    void duplicateDocumentNamesNeverCreateDuplicatePreparationTasks() throws Exception {
+        scheme.setRequiredDocuments(List.of("Income certificate", "income certificate"));
+        schemes.saveAndFlush(scheme);
+        JsonNode started = start(citizen);
+        mockMvc.perform(get("/api/v1/preparations/{id}", started.get("id").asText()).with(user(citizen)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tasks[?(@.type == 'DOCUMENT')]", org.hamcrest.Matchers.hasSize(1)));
+    }
+
     private JsonNode start(User user) throws Exception {
         String body = mockMvc.perform(post("/api/v1/preparations/schemes/{schemeId}", scheme.getId()).with(user(user)))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.officialUrl").value("https://example.gov.in/apply"))
