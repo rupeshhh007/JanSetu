@@ -150,6 +150,31 @@ class PostgresSourceReviewIntegrationTest {
     }
 
     @Test
+    void concurrentIdenticalAgentStartsReturnTheSinglePersistedRun() throws Exception {
+        Fixture fixture = fixture();
+        String key = "postgres-replay-" + UUID.randomUUID();
+        CyclicBarrier startTogether = new CyclicBarrier(2);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<UUID> first = executor.submit(() -> {
+                startTogether.await();
+                return agentExecutions.start(fixture.candidateId(), fixture.schemeId(), key, fixture.admin()).getId();
+            });
+            Future<UUID> second = executor.submit(() -> {
+                startTogether.await();
+                return agentExecutions.start(fixture.candidateId(), fixture.schemeId(), key, fixture.admin()).getId();
+            });
+            UUID firstRunId = first.get();
+            assertEquals(firstRunId, second.get(), "competing submissions must replay one investigation");
+            assertEquals(firstRunId, agentRuns.findByStartedByIdAndIdempotencyKey(fixture.admin().getId(), key)
+                    .orElseThrow().getId());
+            assertEquals(12, agentEvents.countByRunId(firstRunId));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     void competingAgentReviewsCommitOneDecisionAndOneAudit() throws Exception {
         Fixture fixture = fixture();
         var run = agentExecutions.start(fixture.candidateId(), fixture.schemeId(),
