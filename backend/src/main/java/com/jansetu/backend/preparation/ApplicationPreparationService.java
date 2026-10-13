@@ -153,6 +153,12 @@ public class ApplicationPreparationService {
         tasks.flush();
         List<PreparationEvidenceReference> evidence = evidence(session);
         List<ApplicationPreparationTask> generated = new ArrayList<>();
+        if (session.getScheme().getStatus() != SchemeStatus.PUBLISHED) {
+            generated.add(task(session, key(PreparationTaskType.UNKNOWN_REQUIREMENT, "publication"),
+                    PreparationTaskType.UNKNOWN_REQUIREMENT, PreparationTaskStatus.UNKNOWN,
+                    "This scheme is not currently published",
+                    "JanSetu cannot establish readiness for an unpublished or archived scheme.", false, evidence));
+        }
         for (String document : session.getScheme().getRequiredDocuments()) {
             String key = key(PreparationTaskType.DOCUMENT, document);
             generated.add(task(session, key, PreparationTaskType.DOCUMENT,
