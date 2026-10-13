@@ -122,6 +122,7 @@ public class ApplicationPreparationService {
         PreparationTaskStatus next = complete ? PreparationTaskStatus.COMPLETE : PreparationTaskStatus.INCOMPLETE;
         if (task.getStatus() != next) {
             task.setStatus(next); task.setCompletedAt(complete ? clock.instant() : null); tasks.save(task);
+            session.setUpdatedAt(clock.instant());
             record(session, identity.user(), complete ? PreparationHistoryEventType.TASK_COMPLETED : PreparationHistoryEventType.TASK_REOPENED,
                     task.getTaskKey(), Map.of("title", task.getTitle()));
             updateReadiness(session, identity.user());
@@ -176,8 +177,11 @@ public class ApplicationPreparationService {
 
     private void rebuildTasks(ApplicationPreparationSession session, CitizenProfile profile, User actor,
                               Map<String, Instant> completedDocuments, boolean refreshed) {
-        tasks.deleteBySessionId(session.getId());
-        tasks.flush();
+        // Reconcile by stable task key, preserving UUIDs of unchanged requirements.
+        // A task request received before a catalogue refresh can then still resolve.
+        Map<String, ApplicationPreparationTask> existingTasks = new HashMap<>();
+        tasks.findBySessionIdOrderByTaskTypeAscTitleAsc(session.getId())
+                .forEach(current -> existingTasks.put(current.getTaskKey(), current));
         List<PreparationEvidenceReference> evidence = evidence(session);
         List<ApplicationPreparationTask> generated = new ArrayList<>();
         if (session.getScheme().getStatus() != SchemeStatus.PUBLISHED) {
@@ -209,7 +213,26 @@ public class ApplicationPreparationService {
                     "No official handoff link is recorded. Verify the submission route with the authority.", false, evidence));
         }
         appendEligibilityTasks(session, profile, evidence, generated);
-        tasks.saveAll(generated);
+        List<ApplicationPreparationTask> reconciled = new ArrayList<>();
+        for (ApplicationPreparationTask proposal : generated) {
+            ApplicationPreparationTask stable = existingTasks.remove(proposal.getTaskKey());
+            if (stable == null) {
+                reconciled.add(proposal);
+                continue;
+            }
+            stable.setTaskType(proposal.getTaskType());
+            stable.setStatus(proposal.getStatus());
+            stable.setTitle(proposal.getTitle());
+            stable.setGuidance(proposal.getGuidance());
+            stable.setCitizenCompletable(proposal.isCitizenCompletable());
+            stable.setEvidenceReferences(proposal.getEvidenceReferences());
+            stable.setCompletedAt(proposal.getCompletedAt());
+            reconciled.add(stable);
+        }
+        tasks.deleteAll(existingTasks.values());
+        tasks.flush();
+        tasks.saveAll(reconciled);
+        session.setUpdatedAt(clock.instant());
         if (refreshed) record(session, actor, PreparationHistoryEventType.REQUIREMENTS_REFRESHED, null,
                 Map.of("policyVersionId", session.getPolicyVersion() == null ? "none" : session.getPolicyVersion().getId().toString()));
         if (session.getStatus() != PreparationStatus.CITIZEN_REPORTED_APPLICATION) {
