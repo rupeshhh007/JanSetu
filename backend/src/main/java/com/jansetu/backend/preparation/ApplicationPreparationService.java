@@ -185,6 +185,7 @@ public class ApplicationPreparationService {
                     "JanSetu cannot establish readiness for an unpublished or archived scheme.", false, evidence));
         }
         for (String document : session.getScheme().getRequiredDocuments()) {
+            if (document == null || document.isBlank()) continue;
             String key = key(PreparationTaskType.DOCUMENT, document);
             generated.add(task(session, key, PreparationTaskType.DOCUMENT,
                     completedDocuments.contains(key) ? PreparationTaskStatus.COMPLETE : PreparationTaskStatus.INCOMPLETE,
