@@ -38,7 +38,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "jansetu-auth",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 );
