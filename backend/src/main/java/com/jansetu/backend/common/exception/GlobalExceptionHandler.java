@@ -155,6 +155,12 @@ public class GlobalExceptionHandler {
         return buildResponse(status, status.getReasonPhrase(), "Request cannot be fulfilled.");
     }
 
+    @ExceptionHandler(com.jansetu.backend.auth.exception.AccountPasswordException.class)
+    public ResponseEntity<ErrorResponse> handleAccountPassword(
+            com.jansetu.backend.auth.exception.AccountPasswordException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Invalid Password Change", ex.getMessage());
+    }
+
     // Fallback for unexpected exceptions (500)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
