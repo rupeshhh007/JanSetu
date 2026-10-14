@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Download, LockKeyhole, ShieldCheck, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { downloadAccountData } from "@/features/privacy/downloadAccountData";
+import { ChangePasswordForm } from "@/features/account/ChangePasswordForm";
 import { getErrorMessage } from "@/lib/api/errorHandler";
 
 export default function SettingsPage() {
@@ -69,6 +70,8 @@ export default function SettingsPage() {
         </p>
         <Link href="/profile" className="text-link mt-4">Review my profile</Link>
       </section>
+
+      <ChangePasswordForm />
 
       <section className="rounded-xl border bg-white p-6">
         <div className="flex items-center gap-3">
