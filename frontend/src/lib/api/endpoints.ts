@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
   GET_SCHEMES: "/api/v1/schemes",
   SAVED_SCHEMES: "/api/v1/citizen/saved-schemes",
   DATA_EXPORT: "/api/v1/citizen/data-export",
+  CHANGE_PASSWORD: "/api/v1/citizen/account/password",
   GET_ADMIN_SCHEMES: "/api/v1/schemes/admin",
   GET_RECOMMENDATIONS: "/api/v1/matching/recommendations",
 
