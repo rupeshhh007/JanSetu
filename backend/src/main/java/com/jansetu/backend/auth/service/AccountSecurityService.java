@@ -4,6 +4,7 @@ import com.jansetu.backend.auth.dto.ChangePasswordRequest;
 import com.jansetu.backend.auth.entity.User;
 import com.jansetu.backend.auth.exception.AccountPasswordException;
 import com.jansetu.backend.auth.repository.UserRepository;
+import com.jansetu.backend.auth.security.AuthenticationRateLimiter;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,16 +18,20 @@ public class AccountSecurityService {
     private final CurrentUserService current;
     private final UserRepository users;
     private final PasswordEncoder passwords;
+    private final AuthenticationRateLimiter limiter;
 
-    public AccountSecurityService(CurrentUserService current, UserRepository users, PasswordEncoder passwords) {
+    public AccountSecurityService(CurrentUserService current, UserRepository users, PasswordEncoder passwords,
+                                  AuthenticationRateLimiter limiter) {
         this.current = current;
         this.users = users;
         this.passwords = passwords;
+        this.limiter = limiter;
     }
 
     @Transactional
     public void changePassword(ChangePasswordRequest request) {
         User authenticated = current.getCurrentUser();
+        limiter.checkIdentity(authenticated.getEmail(), false);
         User account = users.lockById(authenticated.getId())
                 .orElseThrow(() -> new AccountPasswordException("Account unavailable."));
         if (!passwords.matches(request.currentPassword(), account.getPasswordHash())) {
