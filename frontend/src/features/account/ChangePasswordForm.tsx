@@ -49,7 +49,7 @@ export function ChangePasswordForm() {
         <h2 className="editorial text-2xl">Change password</h2>
       </div>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">
-        Confirm your current password to replace it. You'll need to sign in again on all devices.
+        Confirm your current password to replace it. You will need to sign in again on all devices.
       </p>
       <form className="mt-5 space-y-4" onSubmit={submit}>
         <label className="block text-sm">
