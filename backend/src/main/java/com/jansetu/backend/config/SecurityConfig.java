@@ -114,6 +114,7 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("*"));
         // Frontend sends bearer tokens; no cookies are required for cross-origin calls.
         configuration.setAllowCredentials(false);
+        configuration.setExposedHeaders(List.of("X-Request-ID"));
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
