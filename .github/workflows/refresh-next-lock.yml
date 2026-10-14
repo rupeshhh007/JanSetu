@@ -1,0 +1,44 @@
+# Temporary trusted-branch lockfile regeneration. Remove after the pinned patch lands.
+name: Refresh patched Next.js lockfile
+on:
+  push:
+    branches: [feat/product-hardening-2026]
+    paths:
+      - .github/workflows/refresh-next-lock.yml
+      - frontend/package.json
+
+permissions:
+  contents: write
+
+jobs:
+  update-pinned-next:
+    if: github.repository == 'rupeshhh007/JanSetu' && github.ref == 'refs/heads/feat/product-hardening-2026'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/product-hardening-2026
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Resolve reviewed Next.js security release
+        working-directory: frontend
+        run: |
+          npm install next@16.3.8 eslint-config-next@16.3.8 --save-exact --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --no-audit --no-fund
+          npm run lint
+          npx tsc --noEmit
+          npm run build
+      - name: Commit only the reviewed dependency update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- frontend/package.json frontend/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(deps): pin patched Next.js 16.3.8 and refresh integrity lockfile"
+            git push origin HEAD:feat/product-hardening-2026
+          fi
