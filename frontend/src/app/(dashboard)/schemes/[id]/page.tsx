@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useSchemes } from "@/features/schemes/hooks/useSchemes";
 import { getSchemeEligibility } from "@/features/schemes/api/schemesApi";
-import { useSavedSchemes, useWorkspaceStore } from "@/store/useWorkspaceStore";
+import { useSavedSchemeIds, useToggleSavedScheme } from "@/features/bookmarks/hooks";
 import { usePreparations, useStartPreparation } from "@/features/preparations/hooks";
 import { PreparationWorkspace } from "@/features/preparations/PreparationWorkspace";
 export default function SchemeDetail({
@@ -32,8 +32,9 @@ export default function SchemeDetail({
   });
   const preparations = usePreparations();
   const startPreparation = useStartPreparation();
-  const saved = useSavedSchemes().includes(id);
-  const { toggleSaved } = useWorkspaceStore();
+  const savedQuery = useSavedSchemeIds();
+  const saved = (savedQuery.data ?? []).includes(id);
+  const toggleSaved = useToggleSavedScheme();
   const preparation = preparations.data?.find((item) => item.schemeId === id);
   if (catalogue.isPending) return <p role="status">Loading scheme…</p>;
   if (catalogue.isError)
@@ -77,7 +78,8 @@ export default function SchemeDetail({
           <button
             className="flex min-h-10 items-center gap-2 rounded-lg border bg-white px-4 text-sm"
             aria-pressed={saved}
-            onClick={() => toggleSaved(id)}
+            disabled={toggleSaved.isPending || savedQuery.isPending || savedQuery.isError}
+            onClick={() => toggleSaved.mutate({ schemeId: id, saved })}
           >
             <Bookmark size={16} fill={saved ? "currentColor" : "none"} />
             {saved ? "Saved" : "Save scheme"}
