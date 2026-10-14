@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useSchemes } from "@/features/schemes/hooks/useSchemes";
 import { getSchemeEligibility } from "@/features/schemes/api/schemesApi";
+import { schemeSourceFreshness } from "@/features/schemes/sourceFreshness";
 import { useSavedSchemeIds, useToggleSavedScheme } from "@/features/bookmarks/hooks";
 import { usePreparations, useStartPreparation } from "@/features/preparations/hooks";
 import { PreparationWorkspace } from "@/features/preparations/PreparationWorkspace";
@@ -58,6 +59,7 @@ export default function SchemeDetail({
       </div>
     );
   const evaluation = eligibility.data;
+  const source = schemeSourceFreshness(scheme.lastVerifiedAt);
   return (
     <div className="space-y-7 pb-10">
       <Link href="/schemes" className="text-link no-print">
@@ -163,13 +165,14 @@ export default function SchemeDetail({
             <p className="mt-3 text-sm">
               {scheme.sourceName || "Source not recorded"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Catalogue verification date:{" "}
-              {scheme.lastVerifiedAt
-                ? new Date(scheme.lastVerifiedAt).toLocaleDateString("en-IN")
-                : "Not recorded"}
-              . Requirements may change; verify before applying.
+            <p className={`mt-2 text-sm ${source.status === "recent" ? "text-muted-foreground" : "text-amber-800"}`}>
+              {source.text}. Always confirm details with the official department before applying.
             </p>
+            {source.status !== "recent" && (
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                We cannot confirm whether benefits, deadlines, or document requirements have changed.
+              </p>
+            )}
             {scheme.officialUrl && (
               <a
                 href={scheme.officialUrl}
