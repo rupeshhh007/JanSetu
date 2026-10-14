@@ -1,19 +1,24 @@
 package com.jansetu.backend.auth.service;
 
+import com.jansetu.backend.auth.entity.User;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+/**
+ * Signed, short-lived JWTs that become invalid when the account token version
+ * changes. No client-supplied roles are trusted; role information comes from DB.
+ */
 @Service
 public class JwtService {
-
-    // 1. Spring pulls these values from your environment variables/properties!
     @Value("${application.security.jwt.secret-key}")
     private String secretKey;
 
@@ -21,51 +26,51 @@ public class JwtService {
     private long jwtExpiration;
 
     @PostConstruct
-    void verifySecretStrength() {
+    void verifyConfiguration() {
         if (secretKey == null || secretKey.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalStateException("JWT_SECRET_KEY must contain at least 32 UTF-8 bytes");
         }
+        if (jwtExpiration < 60_000L || jwtExpiration > 604_800_000L) {
+            throw new IllegalStateException("JWT_EXPIRATION must be between 1 minute and 7 days");
+        }
     }
 
-    // 2. Convert the secret string into a cryptographic key
-    private SecretKey getSignInKey() {
-        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
+    private SecretKey signingKey() {
+        return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
-    // 3. Generate the actual VIP Badge
-    public String generateToken(String email) {
+    public String generateToken(String email, int tokenVersion) {
+        if (tokenVersion < 0) {
+            throw new IllegalArgumentException("Invalid account session version");
+        }
+        long issuedAt = System.currentTimeMillis();
         return Jwts.builder()
-                .subject(email) // The "who" this badge belongs to
-                .issuedAt(new Date(System.currentTimeMillis())) // The "when" it was printed
-                .expiration(new Date(System.currentTimeMillis() + jwtExpiration)) // The "when" it expires
-                .signWith(getSignInKey()) // The cryptographic signature
-                .compact(); // Squishes it all into the final String token
+                .subject(email)
+                .claim("tv", tokenVersion)
+                .issuedAt(new Date(issuedAt))
+                .expiration(new Date(issuedAt + jwtExpiration))
+                .signWith(signingKey())
+                .compact();
     }
-    // NEW: Extract the email (subject) from the token
+
     public String extractUsername(String token) {
-        return Jwts.parser()
-                .verifyWith(getSignInKey()) // Uses our secret key to check the signature!
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
+        return Jwts.parser().verifyWith(signingKey()).build()
+                .parseSignedClaims(token).getPayload().getSubject();
     }
 
-    // NEW: Check if the token is valid for the specific user
-    public boolean isTokenValid(String token, String userEmail) {
-        final String extractedUsername = extractUsername(token);
-        return (extractedUsername.equals(userEmail) && !isTokenExpired(token));
-    }
-
-    // NEW: Helper method to check expiration
-    private boolean isTokenExpired(String token) {
-        Date expiration = Jwts.parser()
-                .verifyWith(getSignInKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getExpiration();
-        return expiration.before(new Date());
+    /** Verify both signature/expiry and current server-stored account version. */
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        if (!(userDetails instanceof User user) || !user.isEnabled()) {
+            return false;
+        }
+        Claims claims = Jwts.parser().verifyWith(signingKey()).build()
+                .parseSignedClaims(token).getPayload();
+        Integer tokenVersion = claims.get("tv", Integer.class);
+        Date expiration = claims.getExpiration();
+        return user.getUsername().equals(claims.getSubject())
+                && tokenVersion != null
+                && tokenVersion == user.getTokenVersion()
+                && expiration != null
+                && expiration.after(new Date());
     }
 }
