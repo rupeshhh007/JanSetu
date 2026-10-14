@@ -25,7 +25,7 @@ function Catalogue() {
   const query = useSchemes();
   const data = query.data;
   const savedQuery = useSavedSchemeIds();
-  const saved = savedQuery.data ?? [];
+  const saved = useMemo(() => savedQuery.data ?? [], [savedQuery.data]);
   const params = useSearchParams();
   const [search, setSearch] = useState("");
   const deferred = useDeferredValue(search);
