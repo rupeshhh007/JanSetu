@@ -137,6 +137,16 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Concurrent Update", "This record changed. Refresh and try again.");
     }
 
+    @ExceptionHandler(com.jansetu.backend.auth.security.AuthenticationRateLimitException.class)
+    public ResponseEntity<ErrorResponse> handleAuthenticationThrottling(
+            com.jansetu.backend.auth.security.AuthenticationRateLimitException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Integer.toString(
+                        com.jansetu.backend.auth.security.AuthenticationRateLimitException.RETRY_AFTER_SECONDS))
+                .header("Cache-Control", "no-store")
+                .body(buildResponse(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage()).getBody());
+    }
+
     // Fallback for unexpected exceptions (500)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
