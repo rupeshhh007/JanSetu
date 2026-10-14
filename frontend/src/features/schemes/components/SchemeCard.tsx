@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { ArrowRight, Bookmark, Check, MapPin } from "lucide-react";
-import { useSavedSchemes, useWorkspaceStore } from "@/store/useWorkspaceStore";
+import { useSavedSchemeIds, useToggleSavedScheme } from "@/features/bookmarks/hooks";
 import type { SchemeResponse } from "../types";
 export function SchemeCard({
   scheme,
@@ -12,8 +12,9 @@ export function SchemeCard({
   compared?: boolean;
   onCompare?: () => void;
 }) {
-  const saved = useSavedSchemes().includes(scheme.id);
-  const toggle = useWorkspaceStore((s) => s.toggleSaved);
+  const savedQuery = useSavedSchemeIds();
+  const saved = (savedQuery.data ?? []).includes(scheme.id);
+  const toggle = useToggleSavedScheme();
   return (
     <article className="flex h-full flex-col rounded-xl border bg-white p-6 transition-shadow hover:shadow-card-hover">
       <div className="mb-4 flex items-center justify-between gap-2">
@@ -24,7 +25,8 @@ export function SchemeCard({
         <button
           aria-label={`${saved ? "Unsave" : "Save"} ${scheme.name}`}
           aria-pressed={saved}
-          onClick={() => toggle(scheme.id)}
+          disabled={toggle.isPending || savedQuery.isPending || savedQuery.isError}
+          onClick={() => toggle.mutate({ schemeId: scheme.id, saved })}
           className="-mr-2 rounded-lg p-2 text-primary hover:bg-muted"
         >
           <Bookmark size={19} fill={saved ? "currentColor" : "none"} />
