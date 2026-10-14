@@ -16,4 +16,11 @@ public record ProfileFactResponse(
         Instant expiresAt,
         Instant capturedAt,
         boolean active
-) { }
+) {
+    /** Citizen-facing DTO factory, avoiding accidental entity or internal ID leakage. */
+    public static ProfileFactResponse from(com.jansetu.backend.profile.fact.CitizenProfileFact fact, boolean active) {
+        return new ProfileFactResponse(fact.getFactKey(), fact.getValueText(), fact.getProvenance(),
+                fact.getVerificationStatus(), fact.getConsentScope(), fact.getExpiresAt(),
+                fact.getCapturedAt(), active);
+    }
+}
