@@ -10,6 +10,11 @@ public record RegisterRequest(
         String email,
 
         @NotBlank(message = "Password is required")
-        @Size(min = 8, message = "Password must be at least 8 characters long")
+        @Size(min = 12, max = 72, message = "Password must be 12 to 72 characters long")
         String password
-) {}
+) {
+    @jakarta.validation.constraints.AssertTrue(message = "Password must be at most 72 UTF-8 bytes")
+    public boolean isPasswordWithinBcryptLimit() {
+        return password == null || password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72;
+    }
+}
