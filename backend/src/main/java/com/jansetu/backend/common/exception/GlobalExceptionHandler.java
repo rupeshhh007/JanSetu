@@ -164,8 +164,10 @@ public class GlobalExceptionHandler {
     // Fallback for unexpected exceptions (500)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
-        // This prints the error in your console so you can actually debug it
-        log.error("An unexpected error occurred: ", ex);
+        // Production error responses and logs must not reveal submitted personal data.
+        log.error("Unexpected API failure requestId={} exceptionType={}",
+                org.slf4j.MDC.get(com.jansetu.backend.common.RequestIdFilter.MDC_KEY),
+                ex.getClass().getSimpleName());
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred. Please try again later.");
     }
 
