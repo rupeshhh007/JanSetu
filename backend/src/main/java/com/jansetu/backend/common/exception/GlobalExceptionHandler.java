@@ -147,6 +147,14 @@ public class GlobalExceptionHandler {
                 .body(buildResponse(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage()).getBody());
     }
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleExplicitStatus(
+            org.springframework.web.server.ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        // Do not echo exception internals or raw database details in public responses.
+        return buildResponse(status, status.getReasonPhrase(), "Request cannot be fulfilled.");
+    }
+
     // Fallback for unexpected exceptions (500)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
