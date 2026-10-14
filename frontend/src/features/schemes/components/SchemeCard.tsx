@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, Bookmark, Check, MapPin } from "lucide-react";
 import { useSavedSchemeIds, useToggleSavedScheme } from "@/features/bookmarks/hooks";
 import type { SchemeResponse } from "../types";
+import { schemeSourceFreshness } from "../sourceFreshness";
 export function SchemeCard({
   scheme,
   compared,
@@ -14,6 +15,7 @@ export function SchemeCard({
 }) {
   const savedQuery = useSavedSchemeIds();
   const saved = (savedQuery.data ?? []).includes(scheme.id);
+  const source = schemeSourceFreshness(scheme.lastVerifiedAt);
   const toggle = useToggleSavedScheme();
   return (
     <article className="flex h-full flex-col rounded-xl border bg-white p-6 transition-shadow hover:shadow-card-hover">
@@ -42,6 +44,9 @@ export function SchemeCard({
       </h2>
       <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
         {scheme.description}
+      </p>
+      <p className={`mt-3 text-xs ${source.status === "stale" ? "text-amber-800" : "text-muted-foreground"}`}>
+        {source.text}
       </p>
       {scheme.benefits[0] && (
         <div className="my-5 flex gap-2 rounded-lg bg-muted/70 p-3 text-xs leading-5">
