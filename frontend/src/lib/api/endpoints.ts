@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
     `/api/v1/citizen/profile/facts/${factKey}`,
 
   GET_SCHEMES: "/api/v1/schemes",
+  SAVED_SCHEMES: "/api/v1/citizen/saved-schemes",
   GET_ADMIN_SCHEMES: "/api/v1/schemes/admin",
   GET_RECOMMENDATIONS: "/api/v1/matching/recommendations",
 
