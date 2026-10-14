@@ -18,7 +18,7 @@ export default function PrivacyNotice() {
       <section>
         <h2 className="text-xl font-semibold">Information used</h2>
         <p className="mt-2 text-sm leading-7">
-          If you create an account, the service stores your email address and an encrypted
+          If you create an account, the service stores your email address and a one-way hashed
           password verifier, profile attributes you provide, declared facts and consent settings,
           your saved schemes, recorded recommendations or policy assessments, locally reported
           application progress, and in-app notifications. This information is used to provide
