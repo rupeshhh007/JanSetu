@@ -28,6 +28,12 @@ public final class AuthRequestThrottleFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         if (!"POST".equalsIgnoreCase(request.getMethod())) return true;
         String path = request.getServletPath();
+        // Some servlet containers expose an empty servletPath before dispatch.
+        if (path == null || path.isEmpty()) {
+            String requestUri = request.getRequestURI();
+            String context = request.getContextPath();
+            path = requestUri.substring(context == null ? 0 : context.length());
+        }
         return !("/api/v1/auth/login".equals(path) || "/api/v1/auth/register".equals(path));
     }
 
