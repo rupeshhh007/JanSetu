@@ -19,6 +19,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final String nonexistentUserHash;
 
     @Value("${application.security.jwt.expiration}")
     private long jwtExpiration;
@@ -27,6 +28,7 @@ public class AuthService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.nonexistentUserHash = passwordEncoder.encode("jansetu-unregistered-account-sentinel");
     }
 
     public RegisterResponse register(RegisterRequest request) {
@@ -55,16 +57,12 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
 
-        // 1. Find the user by email
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> {
-
-                    return new InvalidCredentialsException();
-                });
-
-        // 2. Check if the password matches the hash in the database
-        if (!user.isEnabled() || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-
+        // Verify a BCrypt hash for both existing and unknown accounts, reducing
+        // username-enumeration timing differences. The sentinel is not a login.
+        User user = userRepository.findByEmail(email).orElse(null);
+        String storedHash = user == null ? nonexistentUserHash : user.getPasswordHash();
+        boolean passwordMatches = passwordEncoder.matches(request.password(), storedHash);
+        if (user == null || !user.isEnabled() || !passwordMatches) {
             throw new InvalidCredentialsException();
         }
 
