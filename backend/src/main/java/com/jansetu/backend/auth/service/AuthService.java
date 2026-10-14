@@ -73,7 +73,7 @@ public class AuthService {
         }
 
         // 3. Generate the JWT
-        String jwtToken = jwtService.generateToken(user.getEmail());
+        String jwtToken = jwtService.generateToken(user.getEmail(), user.getTokenVersion());
 
         // 4. Return the VIP Badge
         return new LoginResponse(jwtToken, "Bearer", jwtExpiration, user.getRole().name());
