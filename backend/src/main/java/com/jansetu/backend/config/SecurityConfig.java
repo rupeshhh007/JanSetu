@@ -64,7 +64,8 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/v1/auth/**",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/register",
                                 "/api/v1/health",
                                 "/api/v1/health/ready",
                                 "/v3/api-docs",
@@ -111,7 +112,9 @@ public class SecurityConfig {
                 List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
         );
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
+        // Frontend sends bearer tokens; no cookies are required for cross-origin calls.
+        configuration.setAllowCredentials(false);
+        configuration.setExposedHeaders(List.of("X-Request-ID"));
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();

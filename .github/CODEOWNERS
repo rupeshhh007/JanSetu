@@ -1,0 +1,8 @@
+# Changes in these sensitive areas require deliberate review.
+* @rupeshhh007
+/.github/ @rupeshhh007
+/backend/src/main/java/com/jansetu/backend/auth/ @rupeshhh007
+/backend/src/main/java/com/jansetu/backend/config/ @rupeshhh007
+/backend/src/main/resources/ @rupeshhh007
+/frontend/src/store/ @rupeshhh007
+/frontend/src/lib/api/ @rupeshhh007

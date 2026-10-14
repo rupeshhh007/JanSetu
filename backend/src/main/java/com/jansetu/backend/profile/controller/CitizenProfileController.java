@@ -80,15 +80,6 @@ public class CitizenProfileController {
     }
 
     private ProfileFactResponse mapFact(com.jansetu.backend.profile.fact.CitizenProfileFact fact) {
-        return new ProfileFactResponse(
-                fact.getFactKey(),
-                fact.getValueText(),
-                fact.getProvenance(),
-                fact.getVerificationStatus(),
-                fact.getConsentScope(),
-                fact.getExpiresAt(),
-                fact.getCapturedAt(),
-                profileFactService.isActive(fact)
-        );
+        return ProfileFactResponse.from(fact, profileFactService.isActive(fact));
     }
 }

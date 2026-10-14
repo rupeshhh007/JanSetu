@@ -12,7 +12,7 @@ import {
 import { SchemeCard } from "@/features/schemes/components/SchemeCard";
 import { SchemeSkeleton } from "@/features/schemes/components/SchemeSkeleton";
 import { useSchemes } from "@/features/schemes/hooks/useSchemes";
-import { useSavedSchemes } from "@/store/useWorkspaceStore";
+import { useSavedSchemeIds } from "@/features/bookmarks/hooks";
 import { toast } from "sonner";
 export default function SchemesPage() {
   return (
@@ -24,7 +24,8 @@ export default function SchemesPage() {
 function Catalogue() {
   const query = useSchemes();
   const data = query.data;
-  const saved = useSavedSchemes();
+  const savedQuery = useSavedSchemeIds();
+  const saved = useMemo(() => savedQuery.data ?? [], [savedQuery.data]);
   const params = useSearchParams();
   const [search, setSearch] = useState("");
   const deferred = useDeferredValue(search);
@@ -119,7 +120,7 @@ function Catalogue() {
             className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 text-sm ${onlySaved ? "border-primary bg-accent text-primary" : "hover:bg-muted"}`}
           >
             <Bookmark size={15} />
-            Saved ({saved.length})
+            Saved ({savedQuery.isError ? "—" : saved.length})
           </button>
           <span
             aria-live="polite"
@@ -128,15 +129,20 @@ function Catalogue() {
             {query.isPending ? "Loading…" : `${filtered.length} schemes`}
           </span>
         </div>
-        {onlySaved && (
+        {savedQuery.isError && (
+          <p role="alert" className="text-xs text-destructive">
+            Saved schemes are unavailable. <button className="text-link" onClick={() => savedQuery.refetch()}>Retry</button>
+          </p>
+        )}
+        {onlySaved && !savedQuery.isError && (
           <p className="text-xs text-muted-foreground">
             Your shortlist is saved for this account on this device.
           </p>
         )}
       </div>
-      {query.isPending ? (
+      {query.isPending || (onlySaved && savedQuery.isPending) ? (
         <SchemeSkeleton />
-      ) : query.isError ? (
+      ) : query.isError || (onlySaved && savedQuery.isError) ? (
         <div role="alert" className="paper-card p-8">
           <p>We couldn’t load the catalogue.</p>
           <button className="text-link mt-3" onClick={() => query.refetch()}>

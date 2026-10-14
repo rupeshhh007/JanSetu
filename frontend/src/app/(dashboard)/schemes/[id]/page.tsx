@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { useSchemes } from "@/features/schemes/hooks/useSchemes";
 import { getSchemeEligibility } from "@/features/schemes/api/schemesApi";
-import { useSavedSchemes, useWorkspaceStore } from "@/store/useWorkspaceStore";
+import { schemeSourceFreshness } from "@/features/schemes/sourceFreshness";
+import { useSavedSchemeIds, useToggleSavedScheme } from "@/features/bookmarks/hooks";
 import { usePreparations, useStartPreparation } from "@/features/preparations/hooks";
 import { PreparationWorkspace } from "@/features/preparations/PreparationWorkspace";
 export default function SchemeDetail({
@@ -32,8 +33,9 @@ export default function SchemeDetail({
   });
   const preparations = usePreparations();
   const startPreparation = useStartPreparation();
-  const saved = useSavedSchemes().includes(id);
-  const { toggleSaved } = useWorkspaceStore();
+  const savedQuery = useSavedSchemeIds();
+  const saved = (savedQuery.data ?? []).includes(id);
+  const toggleSaved = useToggleSavedScheme();
   const preparation = preparations.data?.find((item) => item.schemeId === id);
   if (catalogue.isPending) return <p role="status">Loading scheme…</p>;
   if (catalogue.isError)
@@ -57,6 +59,7 @@ export default function SchemeDetail({
       </div>
     );
   const evaluation = eligibility.data;
+  const source = schemeSourceFreshness(scheme.lastVerifiedAt);
   return (
     <div className="space-y-7 pb-10">
       <Link href="/schemes" className="text-link no-print">
@@ -77,7 +80,8 @@ export default function SchemeDetail({
           <button
             className="flex min-h-10 items-center gap-2 rounded-lg border bg-white px-4 text-sm"
             aria-pressed={saved}
-            onClick={() => toggleSaved(id)}
+            disabled={toggleSaved.isPending || savedQuery.isPending || savedQuery.isError}
+            onClick={() => toggleSaved.mutate({ schemeId: id, saved })}
           >
             <Bookmark size={16} fill={saved ? "currentColor" : "none"} />
             {saved ? "Saved" : "Save scheme"}
@@ -161,13 +165,14 @@ export default function SchemeDetail({
             <p className="mt-3 text-sm">
               {scheme.sourceName || "Source not recorded"}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Catalogue verification date:{" "}
-              {scheme.lastVerifiedAt
-                ? new Date(scheme.lastVerifiedAt).toLocaleDateString("en-IN")
-                : "Not recorded"}
-              . Requirements may change; verify before applying.
+            <p className={`mt-2 text-sm ${source.status === "recent" ? "text-muted-foreground" : "text-amber-800"}`}>
+              {source.text}. Always confirm details with the official department before applying.
             </p>
+            {source.status !== "recent" && (
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                We cannot confirm whether benefits, deadlines, or document requirements have changed.
+              </p>
+            )}
             {scheme.officialUrl && (
               <a
                 href={scheme.officialUrl}

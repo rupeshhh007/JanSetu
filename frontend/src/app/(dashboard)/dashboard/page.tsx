@@ -10,14 +10,15 @@ import {
 } from "lucide-react";
 import { useSchemes } from "@/features/schemes/hooks/useSchemes";
 import { useProfile } from "@/features/citizen/hooks/useProfile";
-import { useSavedSchemes } from "@/store/useWorkspaceStore";
+import { useSavedSchemeIds } from "@/features/bookmarks/hooks";
 import { PolicyNotificationInbox } from "@/features/notifications/PolicyNotificationInbox";
 import { usePreparations } from "@/features/preparations/hooks";
 export default function DashboardPage() {
   const profile = useProfile();
   const schemes = useSchemes();
   const preparations = usePreparations();
-  const saved = useSavedSchemes();
+  const savedQuery = useSavedSchemeIds();
+  const saved = savedQuery.data ?? [];
   const steps = [
     {
       title: "Create your profile",
@@ -97,8 +98,8 @@ export default function DashboardPage() {
           {
             title: "Saved schemes",
             value: saved.length,
-            loading: false,
-            error: false,
+            loading: savedQuery.isPending,
+            error: savedQuery.isError,
             href: "/schemes?saved=1",
           },
           {

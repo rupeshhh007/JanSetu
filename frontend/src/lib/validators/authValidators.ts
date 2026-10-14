@@ -8,6 +8,9 @@ export const emailSchema = z
 
 export const passwordSchema = z
   .string()
-  .min(8, "Password must be at least 8 characters")
+  .min(12, "Password must be at least 12 characters")
+  .max(72, "Password must be at most 72 characters")
+  .refine((value) => new TextEncoder().encode(value).length <= 72,
+    "Password must be at most 72 UTF-8 bytes")
   .regex(/[A-Za-z]/, "Password must contain at least one letter")
   .regex(/[0-9]/, "Password must contain at least one number");

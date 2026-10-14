@@ -39,6 +39,9 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion = 0;
+
     @CreationTimestamp
     @Column(updatable = false)
     private Instant createdAt;

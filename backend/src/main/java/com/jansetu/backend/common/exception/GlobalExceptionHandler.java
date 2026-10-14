@@ -137,11 +137,37 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Concurrent Update", "This record changed. Refresh and try again.");
     }
 
+    @ExceptionHandler(com.jansetu.backend.auth.security.AuthenticationRateLimitException.class)
+    public ResponseEntity<ErrorResponse> handleAuthenticationThrottling(
+            com.jansetu.backend.auth.security.AuthenticationRateLimitException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Integer.toString(
+                        com.jansetu.backend.auth.security.AuthenticationRateLimitException.RETRY_AFTER_SECONDS))
+                .header("Cache-Control", "no-store")
+                .body(buildResponse(HttpStatus.TOO_MANY_REQUESTS, "Too Many Requests", ex.getMessage()).getBody());
+    }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleExplicitStatus(
+            org.springframework.web.server.ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        // Do not echo exception internals or raw database details in public responses.
+        return buildResponse(status, status.getReasonPhrase(), "Request cannot be fulfilled.");
+    }
+
+    @ExceptionHandler(com.jansetu.backend.auth.exception.AccountPasswordException.class)
+    public ResponseEntity<ErrorResponse> handleAccountPassword(
+            com.jansetu.backend.auth.exception.AccountPasswordException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Invalid Password Change", ex.getMessage());
+    }
+
     // Fallback for unexpected exceptions (500)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
-        // This prints the error in your console so you can actually debug it
-        log.error("An unexpected error occurred: ", ex);
+        // Production error responses and logs must not reveal submitted personal data.
+        log.error("Unexpected API failure requestId={} exceptionType={}",
+                org.slf4j.MDC.get(com.jansetu.backend.common.RequestIdFilter.MDC_KEY),
+                ex.getClass().getSimpleName());
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred. Please try again later.");
     }
 

@@ -14,6 +14,7 @@ import {
   LogOut,
   MessageCircle,
   ShieldCheck,
+  Settings,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ export const NAV_LINKS = [
   { label: "My matches", href: "/recommendations", icon: ScanLine },
   { label: "Applications", href: "/applications", icon: ClipboardList },
   { label: "My profile", href: "/profile", icon: UserRound },
+  { label: "Privacy & data", href: "/settings", icon: Settings },
 ];
 export function Navbar() {
   const [open, setOpen] = useState(false);
