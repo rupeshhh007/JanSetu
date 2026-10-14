@@ -17,6 +17,7 @@ class AuthRequestThrottleFilterTest {
         FilterChain chain = mock(FilterChain.class);
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
         request.setRemoteAddr("203.0.113.18");
+        request.setServletPath("/api/v1/auth/login");
         for (int i = 0; i < 150; i++) {
             filter.doFilter(request, new MockHttpServletResponse(), chain);
         }
