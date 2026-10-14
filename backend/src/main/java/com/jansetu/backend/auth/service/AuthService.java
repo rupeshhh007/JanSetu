@@ -49,7 +49,13 @@ public class AuthService {
         // provisioned by an operator, never inferred from an email address.
         user.setEnabled(true);
 
-        User savedUser = userRepository.save(user);
+        User savedUser;
+        try {
+            savedUser = userRepository.saveAndFlush(user);
+        } catch (org.springframework.dao.DataIntegrityViolationException duplicate) {
+            // The unique email constraint handles concurrent registration races.
+            throw new EmailAlreadyExistsException();
+        }
 
         return new RegisterResponse(savedUser.getId(), savedUser.getEmail(), "User registered successfully", savedUser.getRole().name());
     }
